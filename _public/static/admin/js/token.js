@@ -274,7 +274,8 @@ function renderTable() {
     // Type (Center)
     const tdType = document.createElement('td');
     tdType.className = 'text-center';
-    tdType.innerHTML = `<span class="badge badge-gray">${escapeHtml(item.pool)}</span>`;
+    const isSuper = item.pool === 'ssoSuper';
+    tdType.innerHTML = `<span class="badge ${isSuper ? 'badge-amber' : 'badge-blue'}">${isSuper ? 'Super' : 'Basic'}</span>`;
 
     // Status (Center) - 显示状态和 nsfw 标签
     const tdStatus = document.createElement('td');

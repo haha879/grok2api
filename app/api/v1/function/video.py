@@ -12,6 +12,7 @@ from app.core.auth import verify_function_key
 from app.core.logger import logger
 from app.services.grok.services.video import VideoService
 from app.services.grok.services.model import ModelService
+from app.services.credits.manager import get_credits_manager
 
 router = APIRouter()
 
@@ -51,6 +52,7 @@ async def _new_session(
     preset: str,
     image_url: Optional[str],
     reasoning_effort: Optional[str],
+    user_id: Optional[str] = None,
 ) -> str:
     task_id = uuid.uuid4().hex
     now = time.time()
@@ -64,6 +66,7 @@ async def _new_session(
             "preset": preset,
             "image_url": image_url,
             "reasoning_effort": reasoning_effort,
+            "user_id": user_id,
             "created_at": now,
         }
     return task_id
@@ -134,7 +137,7 @@ class VideoStartRequest(BaseModel):
 
 
 @router.post("/video/start", dependencies=[Depends(verify_function_key)])
-async def function_video_start(data: VideoStartRequest):
+async def function_video_start(request: Request, data: VideoStartRequest):
     prompt = (data.prompt or "").strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
@@ -179,6 +182,14 @@ async def function_video_start(data: VideoStartRequest):
                 detail=f"reasoning_effort must be one of {sorted(allowed)}",
             )
 
+    # Extract OAuth user_id for per-video credits deduction in SSE
+    from app.api.v1.function.oauth import get_oauth_user_id
+    token = ""
+    auth_header = request.headers.get("authorization") or ""
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:]
+    user_id = get_oauth_user_id(token) if token else None
+
     task_id = await _new_session(
         prompt,
         aspect_ratio,
@@ -187,6 +198,7 @@ async def function_video_start(data: VideoStartRequest):
         preset,
         image_url,
         reasoning_effort,
+        user_id,
     )
     return {"task_id": task_id, "aspect_ratio": aspect_ratio}
 
@@ -204,6 +216,7 @@ async def function_video_sse(request: Request, task_id: str = Query("")):
     preset = str(session.get("preset") or "normal")
     image_url = session.get("image_url")
     reasoning_effort = session.get("reasoning_effort")
+    sse_user_id = session.get("user_id")
 
     async def event_stream():
         try:
@@ -242,10 +255,29 @@ async def function_video_sse(request: Request, task_id: str = Query("")):
                 preset=preset,
             )
 
+            # Collect all chunks; forward to client and detect success
+            video_success = False
             async for chunk in stream:
                 if await request.is_disconnected():
                     break
+                if '"finish_reason":"stop"' in chunk or '"finish_reason": "stop"' in chunk:
+                    video_success = True
                 yield chunk
+
+            # Per-video credits deduction for OAuth users (only on success)
+            if sse_user_id and video_success:
+                from app.core.config import get_config as _gc
+                if _gc("credits.enabled", True):
+                    cost = int(_gc("credits.video_cost", 20))
+                    mgr = await get_credits_manager()
+                    ok = await mgr.consume(sse_user_id, cost, reason="video")
+                    if not ok:
+                        u = await mgr.get_credits(sse_user_id)
+                        bal = u.credits if u else 0
+                        yield f"data: {orjson.dumps({'type': 'credits_error', 'message': f'Insufficient credits: need {cost}, have {bal}', 'code': 'insufficient_credits'}).decode()}\n\n"
+                    else:
+                        u = await mgr.get_credits(sse_user_id)
+                        yield f"data: {orjson.dumps({'type': 'credits_update', 'credits': u.credits if u else 0}).decode()}\n\n"
         except Exception as e:
             logger.warning(f"Function video SSE error: {e}")
             payload = {"error": str(e), "code": "internal_error"}
@@ -269,6 +301,23 @@ class VideoStopRequest(BaseModel):
 async def function_video_stop(data: VideoStopRequest):
     removed = await _drop_sessions(data.task_ids or [])
     return {"status": "success", "removed": removed}
+
+
+class VideoCacheDeleteRequest(BaseModel):
+    name: str
+
+
+@router.post("/video/cache/delete", dependencies=[Depends(verify_function_key)])
+async def function_video_cache_delete(data: VideoCacheDeleteRequest):
+    """Delete a cached video file and its related preview image."""
+    from app.services.grok.utils.cache import CacheService
+
+    name = (data.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Missing file name")
+    cache_service = CacheService()
+    result = cache_service.delete_file("video", name)
+    return {"status": "success", "result": result}
 
 
 __all__ = ["router"]

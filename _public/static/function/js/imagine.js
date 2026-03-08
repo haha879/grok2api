@@ -40,8 +40,139 @@
   let isSelectionMode = false;
   let selectedImages = new Set();
   let streamSequence = 0;
+
+  // === Edit mode state ===
+  let imagineMode = 'generate'; // 'generate' or 'edit'
+  const MAX_EDIT_IMAGES = 3;
+  let editImageFiles = []; // multi-image array
+  const imagineModeBtns = document.querySelectorAll('.imagine-mode-btn');
+  const editImageUpload = document.getElementById('editImageUpload');
+  const editUploadArea = document.getElementById('editUploadArea');
+  const editFileInput = document.getElementById('editFileInput');
+  const editUploadPlaceholder = document.getElementById('editUploadPlaceholder');
+  const editPreviewList = document.getElementById('editPreviewList');
   const streamImageMap = new Map();
   let finalMinBytesDefault = 100000;
+
+  // === Imagine Mode Toggle ===
+  function switchImagineMode(mode) {
+    imagineMode = mode;
+    imagineModeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.imagineMode === mode));
+    if (mode === 'edit') {
+      if (editImageUpload) editImageUpload.classList.remove('hidden');
+    } else {
+      if (editImageUpload) editImageUpload.classList.add('hidden');
+    }
+  }
+
+  imagineModeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.imagineMode;
+      if (mode) switchImagineMode(mode);
+    });
+  });
+
+  // === Edit Image Upload (multi-image) ===
+  function renderEditPreviews() {
+    if (!editPreviewList) return;
+    editPreviewList.innerHTML = '';
+    editImageFiles.forEach((file, idx) => {
+      const item = document.createElement('div');
+      item.className = 'edit-preview-item';
+      const img = document.createElement('img');
+      img.alt = `preview-${idx + 1}`;
+      const reader = new FileReader();
+      reader.onload = (e) => { img.src = e.target.result; };
+      reader.readAsDataURL(file);
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'edit-remove-btn';
+      removeBtn.title = t('imagine.editRemoveImage') || '移除图片';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeEditImage(idx); });
+      item.appendChild(img);
+      item.appendChild(removeBtn);
+      editPreviewList.appendChild(item);
+    });
+    if (editUploadPlaceholder) {
+      editUploadPlaceholder.classList.toggle('hidden', editImageFiles.length > 0);
+    }
+    if (editPreviewList) {
+      editPreviewList.classList.toggle('hidden', editImageFiles.length === 0);
+    }
+  }
+
+  function handleEditFiles(files) {
+    for (const file of files) {
+      if (editImageFiles.length >= MAX_EDIT_IMAGES) {
+        toast((t('imagine.editMaxImages') || '最多上传{n}张图片').replace('{n}', MAX_EDIT_IMAGES), 'warning');
+        break;
+      }
+      if (!file || !file.type.startsWith('image/')) {
+        toast(t('imagine.editSelectImage') || '请选择图片文件', 'error');
+        continue;
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        toast(t('imagine.editFileTooLarge') || '图片不能超过 50MB', 'error');
+        continue;
+      }
+      editImageFiles.push(file);
+    }
+    renderEditPreviews();
+  }
+
+  function removeEditImage(idx) {
+    editImageFiles.splice(idx, 1);
+    if (editFileInput) editFileInput.value = '';
+    renderEditPreviews();
+  }
+
+  function clearAllEditImages() {
+    editImageFiles = [];
+    if (editFileInput) editFileInput.value = '';
+    renderEditPreviews();
+  }
+
+  if (editUploadArea) {
+    editUploadArea.addEventListener('click', (e) => {
+      if (e.target.closest('.edit-remove-btn')) return;
+      if (editImageFiles.length >= MAX_EDIT_IMAGES) {
+        toast((t('imagine.editMaxImages') || '最多上传{n}张图片').replace('{n}', MAX_EDIT_IMAGES), 'warning');
+        return;
+      }
+      if (editFileInput) editFileInput.click();
+    });
+    editUploadArea.addEventListener('dragover', (e) => { e.preventDefault(); editUploadArea.classList.add('dragover'); });
+    editUploadArea.addEventListener('dragleave', () => { editUploadArea.classList.remove('dragover'); });
+    editUploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      editUploadArea.classList.remove('dragover');
+      handleEditFiles(e.dataTransfer.files);
+    });
+  }
+  if (editFileInput) {
+    editFileInput.addEventListener('change', () => {
+      handleEditFiles(editFileInput.files);
+      editFileInput.value = '';
+    });
+  }
+
+  // Clipboard paste support for edit mode
+  document.addEventListener('paste', (e) => {
+    if (imagineMode !== 'edit') return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    const files = [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      handleEditFiles(files);
+    }
+  });
 
   function toast(message, type) {
     if (typeof showToast === 'function') {
@@ -805,6 +936,92 @@
     updateError('');
   }
 
+  // === Edit Mode: call /v1/images/edits ===
+  async function startEditMode() {
+    const prompt = promptInput ? promptInput.value.trim() : '';
+    if (!prompt) {
+      toast(t('common.enterPrompt') || '请输入提示词', 'error');
+      return;
+    }
+    if (editImageFiles.length === 0) {
+      toast(t('imagine.editUploadRequired') || '请上传参考图片', 'error');
+      return;
+    }
+
+    const authHeader = await ensureFunctionKey();
+    if (authHeader === null) {
+      toast(t('common.configurePublicKey') || '请先登录', 'error');
+      window.location.href = '/login';
+      return;
+    }
+
+    if (isRunning) {
+      toast(t('common.alreadyRunning') || '任务进行中', 'warning');
+      return;
+    }
+
+    isRunning = true;
+    setStatus('connecting', t('imagine.editing') || '编辑中...');
+    setButtons(true);
+
+    const startTime = Date.now();
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    editImageFiles.forEach(f => formData.append('image', f));
+    formData.append('model', 'grok-imagine-1.0-edit');
+    formData.append('n', '1');
+    formData.append('response_format', 'b64_json');
+
+    try {
+      const res = await fetch('/v1/function/imagine/edit', {
+        method: 'POST',
+        headers: buildAuthHeaders(authHeader),
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const elapsed = Date.now() - startTime;
+
+      if (data.credits_info) {
+        const creditsEl = document.getElementById('credits-value');
+        if (creditsEl && typeof data.credits_info.credits === 'number') {
+          creditsEl.textContent = data.credits_info.credits;
+        }
+        if (data.credits_info.error) {
+          toast(data.credits_info.message || t('imagine.insufficientCredits') || '积分不足', 'error');
+        }
+      }
+
+      if (data.data && data.data.length > 0) {
+        data.data.forEach((item) => {
+          const b64 = item.b64_json;
+          if (b64) {
+            imageCount += 1;
+            updateCount(imageCount);
+            updateLatency(elapsed);
+            appendImage(b64, { sequence: imageCount, elapsed_ms: elapsed, prompt: prompt });
+          }
+        });
+        setStatus('connected', t('imagine.editDone') || '编辑完成');
+        toast(t('imagine.editSuccess') || '图片编辑完成', 'success');
+      } else {
+        setStatus('error', t('imagine.noResult') || '无结果');
+        toast(t('imagine.editNoResult') || '未获取到编辑结果', 'error');
+      }
+    } catch (e) {
+      setStatus('error', t('imagine.editFailed') || '编辑失败');
+      toast((t('imagine.editFailed') || '编辑失败') + ': ' + e.message, 'error');
+    } finally {
+      isRunning = false;
+      setButtons(false);
+    }
+  }
+
   async function stopConnection() {
     if (pendingFallbackTimer) {
       clearTimeout(pendingFallbackTimer);
@@ -843,7 +1060,13 @@
   }
 
   if (startBtn) {
-    startBtn.addEventListener('click', () => startConnection());
+    startBtn.addEventListener('click', () => {
+      if (imagineMode === 'edit') {
+        startEditMode();
+      } else {
+        startConnection();
+      }
+    });
   }
 
   if (stopBtn) {
@@ -860,7 +1083,11 @@
     promptInput.addEventListener('keydown', (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         event.preventDefault();
-        startConnection();
+        if (imagineMode === 'edit') {
+          startEditMode();
+        } else {
+          startConnection();
+        }
       }
     });
   }

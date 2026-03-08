@@ -480,3 +480,75 @@ body {
   border-color: var(--video-outline);
   color: var(--accents-7);
 }
+
+/* --- History --- */
+.video-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.video-history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.video-history-item:hover {
+  background: #f5f5f5;
+}
+
+.video-history-item.active {
+  background: #f0f0f0;
+}
+
+.video-history-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.video-history-prompt {
+  font-size: 12px;
+  color: var(--accents-7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-history-time {
+  font-size: 10px;
+  color: var(--accents-4);
+  font-family: 'Geist Mono', ui-monospace, monospace;
+}
+
+.video-history-delete {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--accents-3);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.video-history-item:hover .video-history-delete {
+  opacity: 1;
+}
+
+.video-history-delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}

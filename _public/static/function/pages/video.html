@@ -149,6 +149,17 @@
         <div id="videoEmpty" class="video-empty" data-i18n="video.waitingGenerate">等待生成视频</div>
         <div id="videoStage" class="video-stage hidden"></div>
       </div>
+
+      <div class="video-card">
+        <div class="video-preview-header">
+          <div class="card-title" data-i18n="video.history">历史记录</div>
+          <div class="preview-actions">
+            <button id="clearHistoryBtn" class="geist-button-outline text-xs px-3 hidden" data-i18n="video.clearHistory">清空</button>
+          </div>
+        </div>
+        <div id="historyEmpty" class="video-empty" style="min-height:80px;" data-i18n="video.historyEmpty">暂无历史记录</div>
+        <div id="historyList" class="video-history-list"></div>
+      </div>
     </div>
   </main>
 
@@ -156,7 +167,7 @@
 
   <script src="/static/i18n/i18n.js"></script>
   <script src="/static/common/js/admin-auth.js?v=1.6.1"></script>
-  <script src="/static/common/js/function-header.js?v=1.6.1"></script>
+  <script src="/static/common/js/function-header.js?v=1.6.2"></script>
   <script src="/static/common/js/footer.js?v=1.6.1"></script>
   <script src="/static/common/js/toast.js"></script>
   <script src="/static/function/js/video.js?v=1.6.1"></script>

@@ -198,3 +198,27 @@ concurrent = 100
 batch_size = 50
 # Usage 请求超时时间（秒）
 timeout = 60
+
+# ==================== OAuth 配置 ====================
+[oauth]
+# 是否启用 linux.do OAuth 登录
+linuxdo_enabled = false
+# linux.do OAuth Client ID
+linuxdo_client_id = ""
+# linux.do OAuth Client Secret
+linuxdo_client_secret = ""
+
+# ==================== 积分系统 ====================
+[credits]
+# 是否启用积分系统
+enabled = true
+# 新用户初始积分
+initial_credits = 1000
+# 每日签到积分
+daily_checkin_credits = 1000
+# 图片生成消耗积分
+image_cost = 5
+# 图片编辑消耗积分
+image_edit_cost = 50
+# 视频生成消耗积分
+video_cost = 50

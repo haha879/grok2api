@@ -37,10 +37,14 @@ async def get_image(filename: str):
                 content_type = "image/webp"
 
             # 增加缓存头，支持高并发场景下的浏览器/CDN缓存
+            # Content-Disposition: inline 确保浏览器内联显示而非触发下载
             return FileResponse(
                 file_path,
                 media_type=content_type,
-                headers={"Cache-Control": "public, max-age=31536000, immutable"},
+                headers={
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "Content-Disposition": f'inline; filename="{filename}"',
+                },
             )
 
     logger.warning(f"Image not found: {filename}")
@@ -59,10 +63,14 @@ async def get_video(filename: str):
 
     if await aiofiles.os.path.exists(file_path):
         if await aiofiles.os.path.isfile(file_path):
+            # Content-Disposition: inline 确保浏览器 <video> 标签可直接播放
             return FileResponse(
                 file_path,
                 media_type="video/mp4",
-                headers={"Cache-Control": "public, max-age=31536000, immutable"},
+                headers={
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "Content-Disposition": f'inline; filename="{filename}"',
+                },
             )
 
     logger.warning(f"Video not found: {filename}")

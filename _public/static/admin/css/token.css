@@ -247,6 +247,16 @@
       color: #9333ea;
     }
 
+    .badge-amber {
+      background: #fffbeb;
+      color: #d97706;
+    }
+
+    .badge-blue {
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
     .checkbox {
       width: 12px;
       height: 12px;

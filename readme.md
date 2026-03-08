@@ -1,12 +1,13 @@
-# Grok2API
+# Grok2API (Fork)
 
-**中文** | [English](docs/README.en.md) | [文档](https://blog.cheny.me/blog/posts/grok2api)
+**中文** | [English](docs/README.en.md) | [上游文档](https://blog.cheny.me/blog/posts/grok2api)
+
+> [!NOTE]
+> 本项目 Fork 自 [chenyme/grok2api](https://github.com/chenyme/grok2api)，在上游基础上增加了 LINUX DO OAuth 登录、积分系统、前端增强等功能。
+> 感谢原作者 [@Chenyme](https://github.com/chenyme) 的优秀工作！
 
 > [!NOTE]
 > 本项目仅供学习与研究，使用者必须在遵循 Grok 的 **使用条款** 以及 **法律法规** 的情况下使用，不得用于非法用途。
-
-> [!NOTE]
-> 开源项目欢迎大家支持二开和PR，但请保留原作者标识和前端标识，尊重他人劳动成果～！
 
 基于 **FastAPI** 重构的 Grok2API，全面适配最新 Web 调用格式，支持流/非流式对话、工具调用、图像生成/编辑、视频生成/超分（文生视频 / 图生视频）、深度思考，号池并发与自动负载均衡一体化。
 
@@ -28,7 +29,7 @@ uv run granian --interface asgi --host 0.0.0.0 --port 8000 --workers 1 main:app
 ### Docker Compose
 
 ```bash
-git clone https://github.com/chenyme/grok2api
+git clone https://github.com/WangXingFan/grok2api
 
 cd grok2api
 
@@ -46,7 +47,7 @@ docker compose up -d
 
 ### Vercel 部署
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chenyme/grok2api&env=LOG_LEVEL,LOG_FILE_ENABLED,DATA_DIR,SERVER_STORAGE_TYPE,SERVER_STORAGE_URL&envDefaults=%7B%22DATA_DIR%22%3A%22/tmp/data%22%2C%22LOG_FILE_ENABLED%22%3A%22false%22%2C%22LOG_LEVEL%22%3A%22INFO%22%2C%22SERVER_STORAGE_TYPE%22%3A%22local%22%2C%22SERVER_STORAGE_URL%22%3A%22%22%7D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/WangXingFan/grok2api&env=LOG_LEVEL,LOG_FILE_ENABLED,DATA_DIR,SERVER_STORAGE_TYPE,SERVER_STORAGE_URL&envDefaults=%7B%22DATA_DIR%22%3A%22/tmp/data%22%2C%22LOG_FILE_ENABLED%22%3A%22false%22%2C%22LOG_LEVEL%22%3A%22INFO%22%2C%22SERVER_STORAGE_TYPE%22%3A%22local%22%2C%22SERVER_STORAGE_URL%22%3A%22%22%7D)
 
 > 请务必设置 `DATA_DIR=/tmp/data` 并关闭文件日志 `LOG_FILE_ENABLED=false`。
 >
@@ -54,7 +55,7 @@ docker compose up -d
 
 ### Render 部署
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/chenyme/grok2api)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/WangXingFan/grok2api)
 
 > Render 免费实例 15 分钟无访问会休眠；重启/重新部署会丢失数据。
 >
@@ -75,6 +76,69 @@ docker compose up -d
 - **NSFW 开启**：一键为 Token 开启 Unhinged 模式（需代理或 `cf_clearance`）
 - **配置管理**：在线修改系统配置
 - **缓存管理**：查看和清理媒体缓存
+
+<br>
+
+## Fork 特色功能
+
+### LINUX DO OAuth 登录
+
+支持 [linux.do](https://linux.do) 社区账号一键登录，无需手动输入 Function Key。
+
+- 配置 `[oauth]` 段启用，设置 `linuxdo_client_id` 和 `linuxdo_client_secret`
+- 登录后自动创建用户账户并分配初始积分
+- OAuth Token 有效期 24 小时，支持 CSRF 防护（state 参数校验）
+- 支持通过代理访问 linux.do OAuth 服务（复用 `proxy.base_proxy_url`）
+- 登录页自动检测 OAuth 配置，动态显示/隐藏"使用 LINUX DO 登录"按钮
+
+### 积分系统
+
+为 OAuth 用户提供积分配额管理，控制图像/视频生成用量。
+
+- **新用户初始积分**：注册自动发放（默认 1000）
+- **每日签到**：导航栏签到按钮，每日领取积分（默认 1000）
+- **用量扣费**：图片生成（5）、图片编辑（50）、视频生成（50），均可配置
+- **余额显示**：导航栏实时显示积分余额，支持手动刷新
+- **多后端存储**：自动适配 Local / Redis / MySQL / PostgreSQL，与主项目存储后端一致
+- **积分不足提示**：生成时余额不足会返回明确错误和当前余额
+
+配置项见下方 `[oauth]` 和 `[credits]` 段。
+
+### 图像编辑增强
+
+- **前端编辑模式切换**：Imagine 页面新增"生成/编辑"模式切换按钮
+- **多图上传**：支持同时上传最多 3 张参考图片进行图像编辑
+- **图片预览与删除**：上传后展示缩略图列表，支持逐张删除
+- **后端编辑 API**：新增 `/v1/function/imagine/edit` 端点，Function Key 认证，支持 multipart 多图上传
+
+### 视频生成增强
+
+- **视频历史记录**：前端 localStorage 保存最近 20 条生成记录，支持回放和删除
+- **历史回放优化**：自动将外部过期 URL 解析为本地缓存路径 `/v1/files/video/xxx.mp4`，支持直接播放
+- **历史删除联动**：删除历史记录时自动调用后端 API 清理服务端视频缓存文件
+- **视频缓存删除 API**：新增 `/v1/function/video/cache/delete` 端点，Function Key 认证
+
+### 缓存管理增强
+
+- **级联删除**：删除视频/图片缓存时，自动通过 post_id (UUID) 关联清理对方的预览图/视频文件
+- **图片弹窗预览**：图片缓存点击弹窗预览（Dialog），不再跳转新页面打开
+- **删除后刷新联动**：删除缓存文件后自动刷新关联类型的文件列表
+
+### 独立视频页面
+
+访问 `/video-standalone` 进入增强版视频生成页面（`app/static/video/`），独立于主功能页面。
+
+<br>
+
+## 上游同步记录
+
+本 Fork 基于上游 `v1.6.0` 构建，已同步以下上游更新：
+
+| PR | 说明 | 同步日期 |
+| :-- | :-- | :-- |
+| [#284](https://github.com/chenyme/grok2api/pull/284) | Unicode 文本清洗：清理零宽字符、花式引号、特殊空格等 | 2026-03-08 |
+| [#291](https://github.com/chenyme/grok2api/pull/291) | 视频生成重构：多轮扩展 `VideoRoundPlan`、超分时机 `upscale_timing`、前端分页 | 2026-03-08 |
+| [#299](https://github.com/chenyme/grok2api/pull/299) | 移除废弃 `GROK-4-MINI` 模型、增强 Payload 日志 | 2026-03-08 |
 
 <br>
 
@@ -469,9 +533,22 @@ curl http://localhost:8000/v1/videos \
 | **usage** | `concurrent` | 并发上限 | 批量刷新用量时的并发请求上限。 | `100` |
 |  | `batch_size` | 批次大小 | 批量刷新用量的单批处理数量。 | `50` |
 |  | `timeout` | 请求超时 | 用量查询接口的超时时间（秒）。 | `60` |
+| **oauth** | `linuxdo_enabled` | OAuth 开关 | 是否启用 linux.do OAuth 登录。 | `false` |
+|  | `linuxdo_client_id` | Client ID | linux.do OAuth 应用的 Client ID。 | `""` |
+|  | `linuxdo_client_secret` | Client Secret | linux.do OAuth 应用的 Client Secret。 | `""` |
+| **credits** | `enabled` | 积分开关 | 是否启用积分系统。 | `true` |
+|  | `initial_credits` | 初始积分 | 新用户注册时发放的初始积分。 | `1000` |
+|  | `daily_checkin_credits` | 签到积分 | 每日签到领取的积分数量。 | `1000` |
+|  | `image_cost` | 图片消耗 | 图片生成消耗的积分。 | `5` |
+|  | `image_edit_cost` | 编辑消耗 | 图片编辑消耗的积分。 | `50` |
+|  | `video_cost` | 视频消耗 | 视频生成消耗的积分。 | `50` |
 
 <br>
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Chenyme/grok2api&type=Timeline)](https://star-history.com/#Chenyme/grok2api&Timeline)
+[![Star History Chart](https://api.star-history.com/svg?repos=WangXingFan/grok2api&type=Timeline)](https://star-history.com/#WangXingFan/grok2api&Timeline)
+
+## 致谢
+
+- [chenyme/grok2api](https://github.com/chenyme/grok2api) - 上游原作者

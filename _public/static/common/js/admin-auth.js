@@ -270,3 +270,31 @@ if (document.readyState === 'loading') {
 } else {
   updateStorageModeButton();
 }
+
+// ---------------------------------------------------------------------------
+// Credits helpers for OAuth users
+// ---------------------------------------------------------------------------
+
+async function fetchCredits() {
+  const key = await getStoredFunctionKey();
+  if (!key) return null;
+  try {
+    const res = await fetch(`/v1/function/oauth/credits?token=${encodeURIComponent(key)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function doCheckin() {
+  const key = await getStoredFunctionKey();
+  if (!key) return null;
+  try {
+    const res = await fetch(`/v1/function/oauth/checkin?token=${encodeURIComponent(key)}`, { method: 'POST' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    return null;
+  }
+}

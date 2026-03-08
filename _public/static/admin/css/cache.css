@@ -452,3 +452,78 @@
   box-shadow: 0 0 0 2px #000;
   border-color: #000;
 }
+
+/* Video Preview Dialog */
+.video-preview-dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  width: min(720px, 90vw);
+  max-height: 90vh;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.video-preview-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.video-preview-dialog-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.video-preview-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.video-preview-dialog-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accents-7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: calc(100% - 40px);
+}
+
+.video-preview-dialog-close {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--accents-4);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.video-preview-dialog-close:hover {
+  background: #f3f4f6;
+  color: var(--accents-7);
+}
+
+.video-preview-player {
+  width: 100%;
+  max-height: calc(90vh - 52px);
+  display: block;
+  background: #000;
+}
+
+.image-preview-img {
+  width: 100%;
+  max-height: calc(90vh - 52px);
+  display: block;
+  object-fit: contain;
+  background: #f7f7f8;
+}

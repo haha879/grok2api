@@ -2,9 +2,11 @@
 Local cache utilities.
 """
 
+import re
 from typing import Any, Dict
 
 from app.core.storage import DATA_DIR
+from app.core.logger import logger
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"}
@@ -75,6 +77,38 @@ class CacheService:
 
         return {"total": total, "page": page, "page_size": page_size, "items": paged}
 
+    _POST_ID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+    def _extract_post_id(self, name: str) -> str | None:
+        """Extract post_id (UUID) from image or video filename."""
+        ids = self._POST_ID_RE.findall(name)
+        if not ids:
+            return None
+        # Image: users-{uid}-generated-{post_id}-preview_image.jpg → last UUID is post_id
+        # Video: {post_id}-generated_video.mp4 → first UUID is post_id
+        if "generated_video" in name:
+            return ids[0]
+        if "preview_image" in name and len(ids) >= 2:
+            return ids[-1]
+        return ids[-1] if ids else None
+
+    def _delete_related(self, media_type: str, name: str):
+        """Delete related files in the other media type directory."""
+        post_id = self._extract_post_id(name)
+        if not post_id:
+            return
+        other_type = "video" if media_type == "image" else "image"
+        other_dir = self._cache_dir(other_type)
+        if not other_dir.exists():
+            return
+        for f in other_dir.glob(f"*{post_id}*"):
+            if f.is_file():
+                try:
+                    f.unlink()
+                    logger.info(f"CacheService: related file deleted: {other_type}/{f.name}")
+                except Exception:
+                    pass
+
     def delete_file(self, media_type: str, name: str) -> Dict[str, Any]:
         cache_dir = self._cache_dir(media_type)
         file_path = cache_dir / name.replace("/", "-")
@@ -82,6 +116,7 @@ class CacheService:
         if file_path.exists():
             try:
                 file_path.unlink()
+                self._delete_related(media_type, name)
                 return {"deleted": True}
             except Exception:
                 pass

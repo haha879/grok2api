@@ -1,6 +1,9 @@
 from typing import List
 
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from app.core.auth import verify_app_key
 from app.core.batch import create_task, expire_task
@@ -219,6 +222,70 @@ async def delete_local_item(data: dict):
         return {"status": "success", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/cache/download", dependencies=[Depends(verify_app_key)])
+async def download_cache_files(data: dict):
+    """Batch download local cache files as a ZIP archive (ZIP_STORED, no compression)."""
+    import zipfile
+    import tempfile
+    from datetime import datetime
+    from app.services.grok.utils.cache import CacheService
+
+    cache_type = data.get("type", "image")
+    names = data.get("names", [])
+
+    if not names or not isinstance(names, list):
+        raise HTTPException(status_code=400, detail="No files specified")
+
+    cache_service = CacheService()
+    base_dir = cache_service.image_dir if cache_type == "image" else cache_service.video_dir
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    try:
+        packed = 0
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as zf:
+            for name in names:
+                if not name or ".." in name or "/" in name or "\\" in name or ":" in name:
+                    continue
+                file_path = base_dir / name
+                try:
+                    if file_path.resolve().parent != base_dir.resolve():
+                        continue
+                except (ValueError, OSError):
+                    continue
+                if file_path.exists() and file_path.is_file():
+                    zf.write(file_path, name)
+                    packed += 1
+        tmp.close()
+
+        if packed == 0:
+            os.unlink(tmp.name)
+            raise HTTPException(status_code=404, detail="No valid files found")
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_name = f"{cache_type}_{timestamp}.zip"
+
+        async def cleanup():
+            try:
+                os.unlink(tmp.name)
+            except Exception:
+                pass
+
+        return FileResponse(
+            tmp.name,
+            media_type="application/zip",
+            filename=zip_name,
+            background=BackgroundTask(cleanup),
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail="Failed to create ZIP archive")
 
 
 @router.post("/cache/online/clear", dependencies=[Depends(verify_app_key)])

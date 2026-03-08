@@ -1,11 +1,13 @@
 import asyncio
+import base64
 import time
 import uuid
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 import orjson
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.core.auth import (
@@ -17,6 +19,7 @@ from app.core.config import get_config
 from app.core.logger import logger
 from app.api.v1.image import resolve_aspect_ratio
 from app.services.grok.services.image import ImageGenerationService
+from app.services.grok.services.image_edit import ImageEditService
 from app.services.grok.services.model import ModelService
 from app.services.token.manager import get_token_manager
 
@@ -507,3 +510,124 @@ class ImagineStopRequest(BaseModel):
 async def function_imagine_stop(data: ImagineStopRequest):
     removed = await _drop_sessions(data.task_ids or [])
     return {"status": "success", "removed": removed}
+
+
+@router.post("/imagine/edit", dependencies=[Depends(verify_function_key)])
+async def function_imagine_edit(
+    request: Request,
+    prompt: str = Form(...),
+    image: List[UploadFile] = File(...),
+    model: Optional[str] = Form("grok-imagine-1.0-edit"),
+    n: int = Form(1),
+    response_format: Optional[str] = Form("b64_json"),
+):
+    """Image edit proxy for function users (uses verify_function_key)."""
+    prompt = (prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+
+    model_id = model or "grok-imagine-1.0-edit"
+    model_info = ModelService.get(model_id)
+    if not model_info:
+        raise HTTPException(status_code=400, detail="Model not available")
+
+    max_image_bytes = 50 * 1024 * 1024
+    allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
+
+    images: List[str] = []
+    for item in image:
+        content = await item.read()
+        await item.close()
+        if not content:
+            raise HTTPException(status_code=400, detail="File content is empty")
+        if len(content) > max_image_bytes:
+            raise HTTPException(
+                status_code=400, detail="Image file too large. Maximum is 50MB."
+            )
+        mime = (item.content_type or "").lower()
+        if mime == "image/jpg":
+            mime = "image/jpeg"
+        ext = Path(item.filename or "").suffix.lower()
+        if mime not in allowed_types:
+            if ext in (".jpg", ".jpeg"):
+                mime = "image/jpeg"
+            elif ext == ".png":
+                mime = "image/png"
+            elif ext == ".webp":
+                mime = "image/webp"
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Unsupported image type. Supported: png, jpg, webp.",
+                )
+        b64 = base64.b64encode(content).decode()
+        images.append(f"data:{mime};base64,{b64}")
+
+    token_mgr = await get_token_manager()
+    await token_mgr.reload_if_stale()
+    token = None
+    for pool_name in ModelService.pool_candidates_for_model(model_id):
+        token = token_mgr.get_token(pool_name)
+        if token:
+            break
+    if not token:
+        raise HTTPException(status_code=503, detail="No available tokens")
+
+    fmt = response_format or "b64_json"
+    result = await ImageEditService().edit(
+        token_mgr=token_mgr,
+        token=token,
+        model_info=model_info,
+        prompt=prompt,
+        images=images,
+        n=n,
+        response_format=fmt,
+        stream=False,
+    )
+
+    output_images = [img for img in result.data if img and img != "error"]
+
+    # Per-image credits deduction for OAuth users
+    credits_info = None
+    try:
+        from app.api.v1.function.oauth import get_oauth_user_id
+
+        auth_header = request.headers.get("authorization") or ""
+        bearer_token = (
+            auth_header[7:] if auth_header.lower().startswith("bearer ") else ""
+        )
+        user_id = get_oauth_user_id(bearer_token) if bearer_token else None
+
+        if user_id and output_images:
+            from app.services.credits.manager import get_credits_manager
+
+            if get_config("credits.enabled", True):
+                cost_per = int(get_config("credits.image_edit_cost", 50))
+                total_cost = cost_per * len(output_images)
+                mgr = await get_credits_manager()
+                ok = await mgr.consume(user_id, total_cost, reason="image_edit")
+                if not ok:
+                    u = await mgr.get_credits(user_id)
+                    bal = u.credits if u else 0
+                    credits_info = {
+                        "error": True,
+                        "message": f"Insufficient credits: need {total_cost}, have {bal}",
+                        "credits": bal,
+                    }
+                else:
+                    u = await mgr.get_credits(user_id)
+                    credits_info = {"credits": u.credits if u else 0}
+    except Exception as e:
+        logger.debug(f"Credits deduction skipped: {e}")
+
+    field = "b64_json" if fmt == "b64_json" else "url"
+    data = [{field: img} for img in output_images]
+
+    resp: dict = {
+        "created": int(time.time()),
+        "data": data,
+    }
+    if credits_info:
+        resp["credits_info"] = credits_info
+
+    return JSONResponse(content=resp)

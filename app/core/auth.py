@@ -153,6 +153,30 @@ async def verify_app_key(
     return auth.credentials
 
 
+def is_valid_function_credential(token: str) -> bool:
+    """
+    Check if a token is a valid function credential.
+
+    Supports both static function_key and OAuth session tokens.
+    Used by SSE/WS endpoints that do manual auth checks.
+    """
+    from app.api.v1.function.oauth import verify_oauth_token
+
+    function_key = get_function_api_key()
+    function_enabled = is_function_enabled()
+
+    if not function_key:
+        return function_enabled
+
+    if _match_function_key(token, function_key):
+        return True
+
+    if verify_oauth_token(token):
+        return True
+
+    return False
+
+
 async def verify_function_key(
     auth: Optional[HTTPAuthorizationCredentials] = Security(security),
 ) -> Optional[str]:
@@ -161,7 +185,10 @@ async def verify_function_key(
 
     默认不公开，需配置 function_key 才能访问；
     若开启 function_enabled 且未配置 function_key，则放开访问。
+    支持 OAuth 临时 token 作为有效凭证。
     """
+    from app.api.v1.function.oauth import verify_oauth_token
+
     function_key = get_function_api_key()
     function_enabled = is_function_enabled()
 
@@ -180,6 +207,10 @@ async def verify_function_key(
             detail="Missing authentication token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Check OAuth token first
+    if verify_oauth_token(auth.credentials):
+        return auth.credentials
 
     if _match_function_key(auth.credentials, function_key):
         return auth.credentials

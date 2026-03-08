@@ -222,6 +222,10 @@
         class="geist-button-outline text-xs px-3 gap-1 border-0 hover:bg-gray-100" data-i18n="common.load">
         加载
       </button>
+      <button id="btn-download-local" onclick="handleDownloadClick()"
+        class="geist-button-outline text-xs px-3 gap-1 border-0 hover:bg-gray-100" data-i18n="common.download">
+        下载
+      </button>
       <button id="btn-delete-assets" onclick="handleDeleteClick()" class="geist-button-danger text-xs px-3" data-i18n="cache.clean">
         清理
       </button>
@@ -256,10 +260,30 @@
     </div>
   </dialog>
 
+  <dialog id="video-preview-dialog" class="video-preview-dialog">
+    <div class="video-preview-dialog-body">
+      <div class="video-preview-dialog-header">
+        <span id="video-preview-title" class="video-preview-dialog-title"></span>
+        <button id="video-preview-close" type="button" class="video-preview-dialog-close">&times;</button>
+      </div>
+      <video id="video-preview-player" controls autoplay class="video-preview-player"></video>
+    </div>
+  </dialog>
+
+  <dialog id="image-preview-dialog" class="video-preview-dialog">
+    <div class="video-preview-dialog-body">
+      <div class="video-preview-dialog-header">
+        <span id="image-preview-title" class="video-preview-dialog-title"></span>
+        <button id="image-preview-close" type="button" class="video-preview-dialog-close">&times;</button>
+      </div>
+      <img id="image-preview-img" class="image-preview-img" alt="preview">
+    </div>
+  </dialog>
+
   <script src="/static/i18n/i18n.js"></script>
   <script src="/static/common/js/admin-auth.js?v=1.6.1"></script>
   <script src="/static/common/js/batch-sse.js?v=1.6.1"></script>
-  <script src="/static/common/js/header.js?v=1.6.1"></script>
+  <script src="/static/common/js/header.js?v=1.6.2"></script>
   <script src="/static/common/js/footer.js?v=1.6.1"></script>
   <script src="/static/common/js/toast.js"></script>
   <script src="/static/admin/js/cache.js?v=1.6.1"></script>

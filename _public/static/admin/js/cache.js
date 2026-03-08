@@ -129,6 +129,8 @@ async function init() {
   setupCacheCards();
   setupConfirmDialog();
   setupFailureDialog();
+  setupVideoPreviewDialog();
+  setupImagePreviewDialog();
   setupBatchControls();
   await loadStats();
   await showCacheSection('image');
@@ -508,6 +510,62 @@ function setupFailureDialog() {
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) {
       dialog.close();
+    }
+  });
+}
+
+function setupVideoPreviewDialog() {
+  const dialog = document.getElementById('video-preview-dialog');
+  if (!dialog) return;
+  const player = document.getElementById('video-preview-player');
+  const closeBtn = document.getElementById('video-preview-close');
+
+  function closeVideoPreview() {
+    if (player) {
+      player.pause();
+      player.removeAttribute('src');
+      player.load();
+    }
+    dialog.close();
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeVideoPreview);
+  }
+  dialog.addEventListener('close', () => {
+    if (player) {
+      player.pause();
+      player.removeAttribute('src');
+      player.load();
+    }
+  });
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) {
+      closeVideoPreview();
+    }
+  });
+}
+
+function setupImagePreviewDialog() {
+  const dialog = document.getElementById('image-preview-dialog');
+  if (!dialog) return;
+  const img = document.getElementById('image-preview-img');
+  const closeBtn = document.getElementById('image-preview-close');
+
+  function closeImagePreview() {
+    if (img) img.removeAttribute('src');
+    dialog.close();
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeImagePreview);
+  }
+  dialog.addEventListener('close', () => {
+    if (img) img.removeAttribute('src');
+  });
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) {
+      closeImagePreview();
     }
   });
 }
@@ -1247,8 +1305,25 @@ function renderLocalCacheList(type, items) {
 
 function viewLocalFile(type, name) {
   const safeName = encodeURIComponent(name);
-  const url = type === 'image' ? `/v1/files/image/${safeName}` : `/v1/files/video/${safeName}`;
-  window.open(url, '_blank');
+  if (type === 'video') {
+    const dialog = document.getElementById('video-preview-dialog');
+    const player = document.getElementById('video-preview-player');
+    const title = document.getElementById('video-preview-title');
+    if (dialog && player) {
+      title.textContent = name;
+      player.src = `/v1/files/video/${safeName}`;
+      dialog.showModal();
+    }
+  } else {
+    const dialog = document.getElementById('image-preview-dialog');
+    const img = document.getElementById('image-preview-img');
+    const title = document.getElementById('image-preview-title');
+    if (dialog && img) {
+      title.textContent = name;
+      img.src = `/v1/files/image/${safeName}`;
+      dialog.showModal();
+    }
+  }
 }
 
 async function deleteLocalFile(type, name) {
@@ -1262,6 +1337,12 @@ async function deleteLocalFile(type, name) {
     selectedLocal[type]?.delete(name);
     if (state.total > 0) state.total -= 1;
     await loadLocalCacheList(type, { page: state.page, pageSize: state.pageSize });
+  }
+  // Refresh the other type list since backend deletes related files
+  const otherType = type === 'image' ? 'video' : 'image';
+  const otherState = getLocalState(otherType);
+  if (otherState) {
+    await loadLocalCacheList(otherType, { page: otherState.page, pageSize: otherState.pageSize });
   }
   await loadStats();
 }
@@ -1345,6 +1426,47 @@ function handleDeleteClick() {
     clearSelectedAccounts();
   } else {
     deleteSelectedLocal(currentSection);
+  }
+}
+
+async function handleDownloadClick() {
+  ensureUI();
+  if (currentSection === 'online') {
+    showToast(t('cache.downloadNotSupportedOnline'), 'info');
+    return;
+  }
+  const selected = selectedLocal[currentSection];
+  const names = selected ? Array.from(selected) : [];
+  if (names.length === 0) {
+    showToast(t('cache.noFilesSelected'), 'info');
+    return;
+  }
+  try {
+    const res = await fetch('/v1/admin/cache/download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...buildAuthHeaders(apiKey)
+      },
+      body: JSON.stringify({ type: currentSection, names })
+    });
+    if (!res.ok) {
+      showToast(t('common.requestFailed'), 'error');
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const disposition = res.headers.get('content-disposition');
+    const match = disposition && disposition.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : `${currentSection}_download.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast(t('common.requestFailed'), 'error');
   }
 }
 
