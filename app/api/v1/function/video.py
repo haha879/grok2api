@@ -1,6 +1,10 @@
 import asyncio
+import base64
+import hashlib
+import re
 import time
 import uuid
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 import orjson
@@ -10,6 +14,7 @@ from pydantic import BaseModel
 
 from app.core.auth import verify_function_key
 from app.core.logger import logger
+from app.core.storage import DATA_DIR
 from app.services.grok.services.video import VideoService
 from app.services.grok.services.model import ModelService
 from app.services.credits.manager import get_credits_manager
@@ -19,6 +24,17 @@ router = APIRouter()
 VIDEO_SESSION_TTL = 600
 _VIDEO_SESSIONS: dict[str, dict] = {}
 _VIDEO_SESSIONS_LOCK = asyncio.Lock()
+VIDEO_REFERENCE_MAX_BYTES = 20 * 1024 * 1024
+VIDEO_REFERENCE_DATA_URI_RE = re.compile(
+    r"^data:(?P<mime>[^;,]+);base64,(?P<data>.+)$", re.IGNORECASE | re.DOTALL
+)
+VIDEO_REFERENCE_MIME_EXT = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 _VIDEO_RATIO_MAP = {
     "1280x720": "16:9",
@@ -116,6 +132,8 @@ def _validate_image_url(image_url: str) -> None:
     value = (image_url or "").strip()
     if not value:
         return
+    if value.startswith("/v1/files/image/"):
+        return
     if value.startswith("data:"):
         return
     if value.startswith("http://") or value.startswith("https://"):
@@ -134,6 +152,73 @@ class VideoStartRequest(BaseModel):
     preset: Optional[str] = "normal"
     image_url: Optional[str] = None
     reasoning_effort: Optional[str] = None
+
+
+def _decode_reference_data_uri(image_data: str) -> tuple[bytes, str]:
+    raw = (image_data or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="image_data cannot be empty")
+
+    match = VIDEO_REFERENCE_DATA_URI_RE.match(raw)
+    if not match:
+        raise HTTPException(
+            status_code=400,
+            detail="image_data must be a data URI: data:<mime>;base64,...",
+        )
+
+    mime = match.group("mime").strip().lower()
+    ext = VIDEO_REFERENCE_MIME_EXT.get(mime)
+    if not ext:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported image type. Allowed: jpeg, png, webp, gif",
+        )
+
+    b64_payload = re.sub(r"\s+", "", match.group("data") or "")
+    if not b64_payload:
+        raise HTTPException(status_code=400, detail="image_data base64 is empty")
+
+    try:
+        decoded = base64.b64decode(b64_payload, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid base64 image_data")
+
+    size = len(decoded)
+    if size <= 0:
+        raise HTTPException(status_code=400, detail="image_data is empty")
+    if size > VIDEO_REFERENCE_MAX_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"image_data too large, max {VIDEO_REFERENCE_MAX_BYTES} bytes",
+        )
+    return decoded, ext
+
+
+async def _persist_reference_image(image_bytes: bytes, ext: str) -> str:
+    image_dir = Path(DATA_DIR) / "tmp" / "image"
+    image_dir.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(image_bytes).hexdigest()[:24]
+    filename = f"video-ref-{digest}{ext}"
+    file_path = image_dir / filename
+
+    if not file_path.exists():
+        await asyncio.to_thread(file_path.write_bytes, image_bytes)
+
+    return f"/v1/files/image/{filename}"
+
+
+class VideoReferenceUploadRequest(BaseModel):
+    image_data: str
+
+
+@router.post("/video/reference/upload", dependencies=[Depends(verify_function_key)])
+async def function_video_reference_upload(data: VideoReferenceUploadRequest):
+    image_bytes, ext = _decode_reference_data_uri(data.image_data)
+    view_url = await _persist_reference_image(image_bytes, ext)
+    return {
+        "url": view_url,
+        "size_bytes": len(image_bytes),
+    }
 
 
 @router.post("/video/start", dependencies=[Depends(verify_function_key)])

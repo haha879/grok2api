@@ -15,7 +15,59 @@
 
 <br>
 
+## Fork 特色功能
+
+### LINUX DO OAuth 登录
+
+支持 [linux.do](https://linux.do) 社区账号一键登录，无需手动输入 Function Key。
+
+- 配置 `[oauth]` 段启用，设置 `linuxdo_client_id` 和 `linuxdo_client_secret`
+- 登录后自动创建用户账户并分配初始积分
+- OAuth Token 有效期 24 小时，支持 CSRF 防护（state 参数校验）
+- 支持通过代理访问 linux.do OAuth 服务（复用 `proxy.base_proxy_url`）
+- 登录页自动检测 OAuth 配置，动态显示/隐藏"使用 LINUX DO 登录"按钮
+
+### 积分系统
+
+为 OAuth 用户提供积分配额管理，控制图像/视频生成用量。
+
+- **新用户初始积分**：注册自动发放（默认 1000）
+- **每日签到**：导航栏签到按钮，每日领取积分（默认 1000）
+- **用量扣费**：图片生成（5）、图片编辑（50）、视频生成（50），均可配置
+- **余额显示**：导航栏实时显示积分余额，支持手动刷新
+- **多后端存储**：自动适配 Local / Redis / MySQL / PostgreSQL，与主项目存储后端一致
+- **积分不足提示**：生成时余额不足会返回明确错误和当前余额
+
+配置项见下方 `[oauth]` 和 `[credits]` 段。
+
+### 图像编辑增强
+
+- **前端编辑模式切换**：Imagine 页面新增"生成/编辑"模式切换按钮
+- **多图上传**：支持同时上传最多 3 张参考图片进行图像编辑
+- **图片预览与删除**：上传后展示缩略图列表，支持逐张删除
+- **后端编辑 API**：新增 `/v1/function/imagine/edit` 端点，Function Key 认证，支持 multipart 多图上传
+
+### 视频生成增强
+
+- **视频任务中心**：前端本地任务持久化，支持状态展示（排队中/运行中/完成/失败/已停止）
+- **任务恢复与重试**：刷新后可恢复运行中的任务；失败/停止/完成任务可一键重试
+- **参考图持久化上传**：自动将本地 `data:` 参考图上传为可复用 URL（`/v1/function/video/reference/upload`），避免刷新后重试丢图
+- **任务队列与并发控制**：支持“加入队列”，按 1 并发串行执行；展示队列序号与预计等待时间，支持单条取消与立即开始
+- **视频历史记录**：前端 localStorage 保存最近 20 条生成记录，支持回放和删除
+- **历史回放优化**：自动将外部过期 URL 解析为本地缓存路径 `/v1/files/video/xxx.mp4`，支持直接播放
+- **历史删除联动**：删除历史记录时自动调用后端 API 清理服务端视频缓存文件
+- **视频缓存删除 API**：新增 `/v1/function/video/cache/delete` 端点，Function Key 认证
+
+### 缓存管理增强
+
+- **级联删除**：删除视频/图片缓存时，自动通过 post_id (UUID) 关联清理对方的预览图/视频文件
+- **图片弹窗预览**：图片缓存点击弹窗预览（Dialog），不再跳转新页面打开
+- **删除后刷新联动**：删除缓存文件后自动刷新关联类型的文件列表
+
+<br>
+
 ## 快速开始
+
 > [文档](https://blog.cheny.me/blog/posts/grok2api)
 
 ### 本地开发
@@ -79,66 +131,16 @@ docker compose up -d
 
 <br>
 
-## Fork 特色功能
-
-### LINUX DO OAuth 登录
-
-支持 [linux.do](https://linux.do) 社区账号一键登录，无需手动输入 Function Key。
-
-- 配置 `[oauth]` 段启用，设置 `linuxdo_client_id` 和 `linuxdo_client_secret`
-- 登录后自动创建用户账户并分配初始积分
-- OAuth Token 有效期 24 小时，支持 CSRF 防护（state 参数校验）
-- 支持通过代理访问 linux.do OAuth 服务（复用 `proxy.base_proxy_url`）
-- 登录页自动检测 OAuth 配置，动态显示/隐藏"使用 LINUX DO 登录"按钮
-
-### 积分系统
-
-为 OAuth 用户提供积分配额管理，控制图像/视频生成用量。
-
-- **新用户初始积分**：注册自动发放（默认 1000）
-- **每日签到**：导航栏签到按钮，每日领取积分（默认 1000）
-- **用量扣费**：图片生成（5）、图片编辑（50）、视频生成（50），均可配置
-- **余额显示**：导航栏实时显示积分余额，支持手动刷新
-- **多后端存储**：自动适配 Local / Redis / MySQL / PostgreSQL，与主项目存储后端一致
-- **积分不足提示**：生成时余额不足会返回明确错误和当前余额
-
-配置项见下方 `[oauth]` 和 `[credits]` 段。
-
-### 图像编辑增强
-
-- **前端编辑模式切换**：Imagine 页面新增"生成/编辑"模式切换按钮
-- **多图上传**：支持同时上传最多 3 张参考图片进行图像编辑
-- **图片预览与删除**：上传后展示缩略图列表，支持逐张删除
-- **后端编辑 API**：新增 `/v1/function/imagine/edit` 端点，Function Key 认证，支持 multipart 多图上传
-
-### 视频生成增强
-
-- **视频历史记录**：前端 localStorage 保存最近 20 条生成记录，支持回放和删除
-- **历史回放优化**：自动将外部过期 URL 解析为本地缓存路径 `/v1/files/video/xxx.mp4`，支持直接播放
-- **历史删除联动**：删除历史记录时自动调用后端 API 清理服务端视频缓存文件
-- **视频缓存删除 API**：新增 `/v1/function/video/cache/delete` 端点，Function Key 认证
-
-### 缓存管理增强
-
-- **级联删除**：删除视频/图片缓存时，自动通过 post_id (UUID) 关联清理对方的预览图/视频文件
-- **图片弹窗预览**：图片缓存点击弹窗预览（Dialog），不再跳转新页面打开
-- **删除后刷新联动**：删除缓存文件后自动刷新关联类型的文件列表
-
-### 独立视频页面
-
-访问 `/video-standalone` 进入增强版视频生成页面（`app/static/video/`），独立于主功能页面。
-
-<br>
-
 ## 上游同步记录
 
 本 Fork 基于上游 `v1.6.0` 构建，已同步以下上游更新：
 
-| PR | 说明 | 同步日期 |
-| :-- | :-- | :-- |
-| [#284](https://github.com/chenyme/grok2api/pull/284) | Unicode 文本清洗：清理零宽字符、花式引号、特殊空格等 | 2026-03-08 |
-| [#291](https://github.com/chenyme/grok2api/pull/291) | 视频生成重构：多轮扩展 `VideoRoundPlan`、超分时机 `upscale_timing`、前端分页 | 2026-03-08 |
-| [#299](https://github.com/chenyme/grok2api/pull/299) | 移除废弃 `GROK-4-MINI` 模型、增强 Payload 日志 | 2026-03-08 |
+
+| PR                                                   | 说明                                                                        | 同步日期   |
+| :--------------------------------------------------- | :-------------------------------------------------------------------------- | :--------- |
+| [#284](https://github.com/chenyme/grok2api/pull/284) | Unicode 文本清洗：清理零宽字符、花式引号、特殊空格等                        | 2026-03-08 |
+| [#291](https://github.com/chenyme/grok2api/pull/291) | 视频生成重构：多轮扩展`VideoRoundPlan`、超分时机 `upscale_timing`、前端分页 | 2026-03-08 |
+| [#299](https://github.com/chenyme/grok2api/pull/299) | 移除废弃`GROK-4-MINI` 模型、增强 Payload 日志                               | 2026-03-08 |
 
 <br>
 
@@ -146,17 +148,18 @@ docker compose up -d
 
 > 配置 `.env` 文件
 
-| 变量名 | 说明 | 默认值 | 示例 |
-| :-- | :-- | :-- | :-- |
-| `LOG_LEVEL` | 日志级别 | `INFO` | `DEBUG` |
-| `LOG_FILE_ENABLED` | 是否启用文件日志 | `true` | `false` |
-| `DATA_DIR` | 数据目录（配置/Token/锁） | `./data` | `/data` |
-| `SERVER_HOST` | 服务监听地址 | `0.0.0.0` | `0.0.0.0` |
-| `SERVER_PORT` | 服务端口 | `8000` | `8000` |
-| `HOST_PORT` | Docker Compose 宿主机映射端口 | `8000` | `9000` |
-| `SERVER_WORKERS` | 服务进程数量 | `1` | `2` |
-| `SERVER_STORAGE_TYPE` | 存储类型（`local`/`redis`/`mysql`/`pgsql`） | `local` | `pgsql` |
-| `SERVER_STORAGE_URL` | 存储连接串（local 时可为空） | `""` | `postgresql+asyncpg://user:password@host:5432/db` |
+
+| 变量名                | 说明                                        | 默认值    | 示例                                              |
+| :-------------------- | :------------------------------------------ | :-------- | :------------------------------------------------ |
+| `LOG_LEVEL`           | 日志级别                                    | `INFO`    | `DEBUG`                                           |
+| `LOG_FILE_ENABLED`    | 是否启用文件日志                            | `true`    | `false`                                           |
+| `DATA_DIR`            | 数据目录（配置/Token/锁）                   | `./data`  | `/data`                                           |
+| `SERVER_HOST`         | 服务监听地址                                | `0.0.0.0` | `0.0.0.0`                                         |
+| `SERVER_PORT`         | 服务端口                                    | `8000`    | `8000`                                            |
+| `HOST_PORT`           | Docker Compose 宿主机映射端口               | `8000`    | `9000`                                            |
+| `SERVER_WORKERS`      | 服务进程数量                                | `1`       | `2`                                               |
+| `SERVER_STORAGE_TYPE` | 存储类型（`local`/`redis`/`mysql`/`pgsql`） | `local`   | `pgsql`                                           |
+| `SERVER_STORAGE_URL`  | 存储连接串（local 时可为空）                | `""`      | `postgresql+asyncpg://user:password@host:5432/db` |
 
 > MySQL 示例：`mysql+aiomysql://user:password@host:3306/db`（若填 `mysql://` 会自动转为 `mysql+aiomysql://`）
 
@@ -171,23 +174,24 @@ docker compose up -d
 
 ## 可用模型
 
-| 模型名 | 计次 | 可用账号 | 对话功能 | 图像功能 | 视频功能 |
-| :-- | :--: | :-- | :--: | :--: | :--: |
-| `grok-3` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-3-mini` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-3-thinking` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-4` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-4-thinking` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-4-heavy` | 4 | Super | 支持 | 支持 | - |
-| `grok-4.1-mini` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-4.1-fast` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-4.1-expert` | 4 | Basic/Super | 支持 | 支持 | - |
-| `grok-4.1-thinking` | 4 | Basic/Super | 支持 | 支持 | - |
-| `grok-4.20-beta` | 1 | Basic/Super | 支持 | 支持 | - |
-| `grok-imagine-1.0` | - | Basic/Super | - | 支持 | - |
-| `grok-imagine-1.0-fast` | - | Basic/Super | - | 支持 | - |
-| `grok-imagine-1.0-edit` | - | Basic/Super | - | 支持 | - |
-| `grok-imagine-1.0-video` | - | Basic/Super | - | - | 支持 |
+
+| 模型名                   | 计次 | 可用账号    | 对话功能 | 图像功能 | 视频功能 |
+| :----------------------- | :--: | :---------- | :------: | :------: | :------: |
+| `grok-3`                 |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-3-mini`            |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-3-thinking`        |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-4`                 |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-4-thinking`        |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-4-heavy`           |  4  | Super       |   支持   |   支持   |    -    |
+| `grok-4.1-mini`          |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-4.1-fast`          |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-4.1-expert`        |  4  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-4.1-thinking`      |  4  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-4.20-beta`         |  1  | Basic/Super |   支持   |   支持   |    -    |
+| `grok-imagine-1.0`       |  -  | Basic/Super |    -    |   支持   |    -    |
+| `grok-imagine-1.0-fast`  |  -  | Basic/Super |    -    |   支持   |    -    |
+| `grok-imagine-1.0-edit`  |  -  | Basic/Super |    -    |   支持   |    -    |
+| `grok-imagine-1.0-video` |  -  | Basic/Super |    -    |    -    |   支持   |
 
 <br>
 
@@ -214,46 +218,49 @@ curl http://localhost:8000/v1/chat/completions \
 
 <br>
 
-| 字段 | 类型 | 说明 | 可用参数 |
-| :-- | :-- | :-- | :-- |
-| `model` | string | 模型名称 | 见上方模型列表 |
-| `messages` | array | 消息列表 | 见下方消息格式 |
-| `stream` | boolean | 是否开启流式输出 | `true`, `false` |
-| `reasoning_effort` | string | 推理强度 | `none`, `minimal`, `low`, `medium`, `high`, `xhigh` |
-| `temperature` | number | 采样温度 | `0` ~ `2` |
-| `top_p` | number | nucleus 采样 | `0` ~ `1` |
-| `tools` | array | 工具定义 | OpenAI function tools |
-| `tool_choice` | string/object | 工具选择 | `auto`, `required`, `none` 或指定工具 |
-| `parallel_tool_calls` | boolean | 是否允许并行工具调用 | `true`, `false` |
-| `video_config` | object | **视频模型专用配置对象** | 支持：`grok-imagine-1.0-video` |
-| └─`aspect_ratio` | string | 视频宽高比 | `16:9`, `9:16`, `1:1`, `2:3`, `3:2`, `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
-| └─`video_length` | integer | 视频时长 (秒) | `6` ~ `30` |
-| └─`resolution_name` | string | 分辨率 | `480p`, `720p` |
-| └─`preset` | string | 风格预设 | `fun`, `normal`, `spicy`, `custom` |
-| `image_config` | object | **图片模型专用配置对象** | 支持：`grok-imagine-1.0` / `grok-imagine-1.0-fast` / `grok-imagine-1.0-edit` |
-| └─`n` | integer | 生成数量 | `1` ~ `10` |
-| └─`size` | string | 图片尺寸 | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
-| └─`response_format` | string | 响应格式 | `url`, `b64_json`, `base64` |
+
+| 字段                  | 类型          | 说明                     | 可用参数                                                                                           |
+| :-------------------- | :------------ | :----------------------- | :------------------------------------------------------------------------------------------------- |
+| `model`               | string        | 模型名称                 | 见上方模型列表                                                                                     |
+| `messages`            | array         | 消息列表                 | 见下方消息格式                                                                                     |
+| `stream`              | boolean       | 是否开启流式输出         | `true`, `false`                                                                                    |
+| `reasoning_effort`    | string        | 推理强度                 | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`                                                |
+| `temperature`         | number        | 采样温度                 | `0` ~ `2`                                                                                          |
+| `top_p`               | number        | nucleus 采样             | `0` ~ `1`                                                                                          |
+| `tools`               | array         | 工具定义                 | OpenAI function tools                                                                              |
+| `tool_choice`         | string/object | 工具选择                 | `auto`, `required`, `none` 或指定工具                                                              |
+| `parallel_tool_calls` | boolean       | 是否允许并行工具调用     | `true`, `false`                                                                                    |
+| `video_config`        | object        | **视频模型专用配置对象** | 支持：`grok-imagine-1.0-video`                                                                     |
+| └─`aspect_ratio`    | string        | 视频宽高比               | `16:9`, `9:16`, `1:1`, `2:3`, `3:2`, `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
+| └─`video_length`    | integer       | 视频时长 (秒)            | `6` ~ `30`                                                                                         |
+| └─`resolution_name` | string        | 分辨率                   | `480p`, `720p`                                                                                     |
+| └─`preset`          | string        | 风格预设                 | `fun`, `normal`, `spicy`, `custom`                                                                 |
+| `image_config`        | object        | **图片模型专用配置对象** | 支持：`grok-imagine-1.0` / `grok-imagine-1.0-fast` / `grok-imagine-1.0-edit`                       |
+| └─`n`               | integer       | 生成数量                 | `1` ~ `10`                                                                                         |
+| └─`size`            | string        | 图片尺寸                 | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024`                                      |
+| └─`response_format` | string        | 响应格式                 | `url`, `b64_json`, `base64`                                                                        |
 
 **消息格式 (messages)**：
 
-| 字段 | 类型 | 说明 |
-| :-- | :-- | :-- |
-| `role` | string | 角色：`developer`, `system`, `user`, `assistant` |
-| `content` | string/array | 消息内容，支持纯文本或多模态数组 |
+
+| 字段      | 类型         | 说明                                             |
+| :-------- | :----------- | :----------------------------------------------- |
+| `role`    | string       | 角色：`developer`, `system`, `user`, `assistant` |
+| `content` | string/array | 消息内容，支持纯文本或多模态数组                 |
 
 **多模态内容块类型 (content array)**：
 
-| type | 说明 | 示例 |
-| :-- | :-- | :-- |
-| `text` | 文本内容 | `{"type": "text", "text": "描述这张图片"}` |
-| `image_url` | 图片 URL | `{"type": "image_url", "image_url": {"url": "https://..."}}` |
-| `input_audio` | 音频 | `{"type": "input_audio", "input_audio": {"data": "https://..."}}` |
-| `file` | 文件 | `{"type": "file", "file": {"file_data": "https://..."}}` |
+
+| type          | 说明     | 示例                                                              |
+| :------------ | :------- | :---------------------------------------------------------------- |
+| `text`        | 文本内容 | `{"type": "text", "text": "描述这张图片"}`                        |
+| `image_url`   | 图片 URL | `{"type": "image_url", "image_url": {"url": "https://..."}}`      |
+| `input_audio` | 音频     | `{"type": "input_audio", "input_audio": {"data": "https://..."}}` |
+| `file`        | 文件     | `{"type": "file", "file": {"file_data": "https://..."}}`          |
 
 **注意事项**：
 
-- `image_url/input_audio/file` 仅支持 URL 或 Data URI（`data:<mime>;base64,...`），裸 base64 会报错。
+- `image_url/input_audio/file` 支持 URL、Data URI（`data:<mime>;base64,...`）以及本地缓存路径（如 `/v1/files/image/xxx.png`）；裸 base64 会报错。
 - `reasoning_effort`：`none` 表示不输出思考，其他值都会输出思考内容。
 - 工具调用为**提示词模拟 + 客户端执行回填**：模型通过 `<tool_call>{...}</tool_call>` 输出调用请求，服务端解析为 `tool_calls`；不执行工具。
 - `grok-imagine-1.0-fast` 与瀑布流 imagine 生成链路一致，可直接通过 `/v1/chat/completions` 调用；其 `n/size/response_format` 由服务端 `[imagine_fast]` 统一控制。
@@ -290,19 +297,20 @@ curl http://localhost:8000/v1/responses \
 
 <br>
 
-| 字段 | 类型 | 说明 |
-| :-- | :-- | :-- |
-| `model` | string | 模型名称 |
-| `input` | string/array | 输入内容，支持字符串、消息数组或多模态内容块 |
-| `instructions` | string | 系统指令 |
-| `stream` | boolean | 是否流式输出 |
-| `temperature` | number | 采样温度 |
-| `top_p` | number | nucleus 采样 |
-| `tools` | array | 工具定义（支持 function 工具；内置工具类型见下方说明） |
-| `tool_choice` | string/object | 工具选择（auto/required/none 或指定工具） |
-| `parallel_tool_calls` | boolean | 是否允许并行工具调用 |
-| `reasoning` | object | 推理参数 |
-| └─`effort` | string | 推理强度 | `none`, `minimal`, `low`, `medium`, `high`, `xhigh` |
+
+| 字段                  | 类型          | 说明                                                   |
+| :-------------------- | :------------ | :----------------------------------------------------- |
+| `model`               | string        | 模型名称                                               |
+| `input`               | string/array  | 输入内容，支持字符串、消息数组或多模态内容块           |
+| `instructions`        | string        | 系统指令                                               |
+| `stream`              | boolean       | 是否流式输出                                           |
+| `temperature`         | number        | 采样温度                                               |
+| `top_p`               | number        | nucleus 采样                                           |
+| `tools`               | array         | 工具定义（支持 function 工具；内置工具类型见下方说明） |
+| `tool_choice`         | string/object | 工具选择（auto/required/none 或指定工具）              |
+| `parallel_tool_calls` | boolean       | 是否允许并行工具调用                                   |
+| `reasoning`           | object        | 推理参数                                               |
+| └─`effort`          | string        | 推理强度                                               |
 
 **注意事项**：
 
@@ -335,16 +343,17 @@ curl http://localhost:8000/v1/images/generations \
 
 <br>
 
-| 字段 | 类型 | 说明 | 可用参数 |
-| :-- | :-- | :-- | :-- |
-| `model` | string | 图像模型名 | `grok-imagine-1.0` |
-| `prompt` | string | 图像描述提示词 | - |
-| `n` | integer | 生成数量 | `1` - `10` (流式模式仅限 `1` 或 `2`) |
-| `stream` | boolean | 是否开启流式输出 | `true`, `false` |
-| `size` | string | 图片尺寸 | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
-| `quality` | string | 图片质量 | - (暂不支持) |
-| `response_format` | string | 响应格式 | `url`, `b64_json`, `base64` |
-| `style` | string | 风格 | - (暂不支持) |
+
+| 字段              | 类型    | 说明             | 可用参数                                                      |
+| :---------------- | :------ | :--------------- | :------------------------------------------------------------ |
+| `model`           | string  | 图像模型名       | `grok-imagine-1.0`                                            |
+| `prompt`          | string  | 图像描述提示词   | -                                                             |
+| `n`               | integer | 生成数量         | `1` - `10` (流式模式仅限 `1` 或 `2`)                          |
+| `stream`          | boolean | 是否开启流式输出 | `true`, `false`                                               |
+| `size`            | string  | 图片尺寸         | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
+| `quality`         | string  | 图片质量         | - (暂不支持)                                                  |
+| `response_format` | string  | 响应格式         | `url`, `b64_json`, `base64`                                   |
+| `style`           | string  | 风格             | - (暂不支持)                                                  |
 
 **注意事项**：
 
@@ -375,17 +384,18 @@ curl http://localhost:8000/v1/images/edits \
 
 <br>
 
-| 字段 | 类型 | 说明 | 可用参数 |
-| :-- | :-- | :-- | :-- |
-| `model` | string | 图像模型名 | `grok-imagine-1.0-edit` |
-| `prompt` | string | 编辑描述 | - |
-| `image` | file | 待编辑图片 | `png`, `jpg`, `webp` |
-| `n` | integer | 生成数量 | `1` - `10` (流式模式仅限 `1` 或 `2`) |
-| `stream` | boolean | 是否开启流式输出 | `true`, `false` |
-| `size` | string | 图片尺寸 | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
-| `quality` | string | 图片质量 | - (暂不支持) |
-| `response_format` | string | 响应格式 | `url`, `b64_json`, `base64` |
-| `style` | string | 风格 | - (暂不支持) |
+
+| 字段              | 类型    | 说明             | 可用参数                                                      |
+| :---------------- | :------ | :--------------- | :------------------------------------------------------------ |
+| `model`           | string  | 图像模型名       | `grok-imagine-1.0-edit`                                       |
+| `prompt`          | string  | 编辑描述         | -                                                             |
+| `image`           | file    | 待编辑图片       | `png`, `jpg`, `webp`                                          |
+| `n`               | integer | 生成数量         | `1` - `10` (流式模式仅限 `1` 或 `2`)                          |
+| `stream`          | boolean | 是否开启流式输出 | `true`, `false`                                               |
+| `size`            | string  | 图片尺寸         | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
+| `quality`         | string  | 图片质量         | - (暂不支持)                                                  |
+| `response_format` | string  | 响应格式         | `url`, `b64_json`, `base64`                                   |
+| `style`           | string  | 风格             | - (暂不支持)                                                  |
 
 **注意事项**：
 
@@ -419,15 +429,16 @@ curl http://localhost:8000/v1/videos \
 
 <br>
 
-| 字段 | 类型 | 说明 | 可用参数 |
-| :-- | :-- | :-- | :-- |
-| `model` | string | 视频模型名 | `grok-imagine-1.0-video` |
-| `prompt` | string | 视频提示词 | - |
-| `size` | string | 画面比例（会映射到 aspect_ratio） | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
-| `seconds` | integer | 目标时长（秒） | `6` ~ `30` |
-| `quality` | string | 视频质量（映射到 resolution） | `standard`, `high` |
-| `image_reference` | object/string | 参考图（可选） | `{"image_url":"https://..."}` 或 Data URI |
-| `input_reference` | file | multipart 参考图（可选） | `png`, `jpg`, `webp` |
+
+| 字段              | 类型          | 说明                              | 可用参数                                                      |
+| :---------------- | :------------ | :-------------------------------- | :------------------------------------------------------------ |
+| `model`           | string        | 视频模型名                        | `grok-imagine-1.0-video`                                      |
+| `prompt`          | string        | 视频提示词                        | -                                                             |
+| `size`            | string        | 画面比例（会映射到 aspect_ratio） | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
+| `seconds`         | integer       | 目标时长（秒）                    | `6` ~ `30`                                                    |
+| `quality`         | string        | 视频质量（映射到 resolution）     | `standard`, `high`                                            |
+| `image_reference` | object/string | 参考图（可选）                    | `{"image_url":"https://..."}` 或 Data URI 或 `/v1/files/image/...` |
+| `input_reference` | file          | multipart 参考图（可选）          | `png`, `jpg`, `webp`                                          |
 
 **注意事项**：
 
@@ -439,6 +450,27 @@ curl http://localhost:8000/v1/videos \
 <br>
 
 </details>
+
+<br>
+
+## Function 专用接口（Fork 前端使用）
+
+> 主要供 `/function/imagine` 与 `/function/video` 页面调用。除 `GET /v1/function/video/sse` 外，均需 `Function Key` 认证。
+
+| 方法 | 路径 | 说明 |
+| :-- | :-- | :-- |
+| `POST` | `/v1/function/imagine/edit` | 图像编辑（multipart，多图上传，最多 3 张） |
+| `POST` | `/v1/function/video/reference/upload` | 上传 Data URI 参考图并持久化为 `/v1/files/image/...` |
+| `POST` | `/v1/function/video/start` | 创建视频任务并返回 `task_id` |
+| `GET` | `/v1/function/video/sse?task_id=...` | 订阅任务流式进度与结果 |
+| `POST` | `/v1/function/video/stop` | 批量停止任务（按 `task_ids`） |
+| `POST` | `/v1/function/video/cache/delete` | 删除视频缓存并联动清理关联预览 |
+
+**注意事项**：
+
+- `POST /v1/function/video/reference/upload` 支持 `jpeg/png/webp/gif`，单图最大 20MB。
+- `task_id` 默认有效期 10 分钟（超时后需重新创建任务）。
+- 视频任务的参考图建议先持久化为 `/v1/files/image/...`，可避免刷新后重试丢图。
 
 <br>
 
@@ -454,94 +486,95 @@ curl http://localhost:8000/v1/videos \
 > **v2.0 配置结构升级**：旧版本用户更新后，配置会**自动迁移**到新结构，无需手动修改。
 > 旧的 `[grok]` 配置节中的自定义值会自动映射到对应的新配置节。
 
-| 模块 | 字段 | 配置名 | 说明 | 默认值 |
-| :-- | :-- | :-- | :-- | :-- |
-| **app** | `app_url` | 应用地址 | 当前 Grok2API 服务的外部访问 URL，用于文件链接访问。 | `""` |
-|  | `app_key` | 后台密码 | 登录 Grok2API 管理后台的密码（必填）。 | `grok2api` |
-|  | `api_key` | API 密钥 | 调用 Grok2API 服务的 Token（可选，支持逗号分隔或数组）。 | `""` |
-|  | `function_enabled` | Function 开关 | 是否启用 function 功能玩法。 | `false` |
-|  | `function_key` | Function 密钥 | Function 调用密钥（可选）。 | `""` |
-|  | `image_format` | 图片格式 | 生成的图片格式（url 或 base64）。 | `url` |
-|  | `video_format` | 视频格式 | 生成的视频格式（html 或 url，url 为处理后的链接）。 | `html` |
-|  | `temporary` | 临时对话 | 是否启用临时对话模式。 | `true` |
-|  | `disable_memory` | 禁用记忆 | 禁用 Grok 记忆功能，防止响应中出现不相关上下文。 | `true` |
-|  | `stream` | 流式响应 | 是否默认启用流式输出。 | `true` |
-|  | `thinking` | 思维链 | 是否默认启用思维链输出。 | `true` |
-|  | `dynamic_statsig` | 动态指纹 | 是否动态生成 Statsig 指纹。 | `true` |
-|  | `custom_instruction` | 自定义指令 | 多行文本，透传为 Grok `customPersonality`。 | `""` |
-|  | `filter_tags` | 过滤标签 | 自动过滤 Grok 响应中的特殊标签。 | `["xaiartifact","xai:tool_usage_card","grok:render"]` |
-| **proxy** | `base_proxy_url` | 基础代理 URL | 代理请求到 Grok 官网的基础服务地址。 | `""` |
-|  | `asset_proxy_url` | 资源代理 URL | 代理请求到 Grok 官网的静态资源（图片/视频）地址。 | `""` |
-|  | `cf_cookies` | CF Cookies | FlareSolverr 刷新写入的完整 Cookie 字符串。 | `""` |
-|  | `skip_proxy_ssl_verify` | 跳过代理 SSL 校验 | 代理使用自签名证书时启用（仅放行代理证书，目标站点仍校验）。 | `false` |
-|  | `enabled` | CF 自动刷新 | 是否启用 CF 自动刷新。 | `false` |
-|  | `flaresolverr_url` | FlareSolverr 地址 | FlareSolverr 服务的 HTTP 地址。 | `""` |
-|  | `refresh_interval` | 刷新间隔 | 自动刷新 cf_clearance 间隔（秒）。 | `3600` |
-|  | `timeout` | 挑战超时 | CF 挑战等待超时（秒）。 | `60` |
-|  | `cf_clearance` | CF Clearance | Cloudflare 验证 Cookie。 | `""` |
-|  | `browser` | 浏览器指纹 | curl_cffi 浏览器指纹标识（如 chrome136）。 | `chrome136` |
-|  | `user_agent` | User-Agent | HTTP 请求的 User-Agent 字符串。 | `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36` |
-| **retry** | `max_retry` | 最大重试 | 请求 Grok 服务失败时的最大重试次数。 | `3` |
-|  | `retry_status_codes` | 重试状态码 | 触发重试的 HTTP 状态码列表。 | `[401, 429, 403]` |
-|  | `reset_session_status_codes` | 重建状态码 | 触发重建 session 的 HTTP 状态码列表（用于轮换代理）。 | `[403]` |
-|  | `retry_backoff_base` | 退避基数 | 重试退避的基础延迟（秒）。 | `0.5` |
-|  | `retry_backoff_factor` | 退避倍率 | 重试退避的指数放大系数。 | `2.0` |
-|  | `retry_backoff_max` | 退避上限 | 单次重试等待的最大延迟（秒）。 | `20.0` |
-|  | `retry_budget` | 退避预算 | 单次请求的最大重试总耗时（秒）。 | `60.0` |
-| **token** | `auto_refresh` | 自动刷新 | 是否开启 Token 自动刷新机制。 | `true` |
-|  | `refresh_interval_hours` | 刷新间隔 | 普通 Token 刷新的时间间隔（小时）。 | `8` |
-|  | `super_refresh_interval_hours` | Super 刷新间隔 | Super Token 刷新的时间间隔（小时）。 | `2` |
-|  | `fail_threshold` | 失败阈值 | 单个 Token 连续失败多少次后被标记为不可用。 | `5` |
-|  | `save_delay_ms` | 保存延迟 | Token 变更合并写入的延迟（毫秒）。 | `500` |
-|  | `usage_flush_interval_sec` | 用量落库间隔 | 用量类字段写入数据库的最小间隔（秒）。 | `5` |
-|  | `reload_interval_sec` | 同步间隔 | 多 worker 场景下 Token 状态刷新间隔（秒）。 | `30` |
-| **cache** | `enable_auto_clean` | 自动清理 | 是否启用缓存自动清理，开启后按上限自动回收。 | `true` |
-|  | `limit_mb` | 清理阈值 | 缓存大小阈值（MB），超过阈值会触发清理。 | `512` |
-| **chat** | `concurrent` | 并发上限 | Reverse 接口并发上限。 | `50` |
-|  | `timeout` | 请求超时 | Reverse 接口超时时间（秒）。 | `60` |
-|  | `stream_timeout` | 流空闲超时 | 流式空闲超时时间（秒）。 | `60` |
-| **image** | `timeout` | 请求超时 | WebSocket 请求超时时间（秒）。 | `60` |
-|  | `stream_timeout` | 流空闲超时 | WebSocket 流式空闲超时时间（秒）。 | `60` |
-|  | `final_timeout` | 最终图超时 | 收到中等图后等待最终图的超时秒数。 | `15` |
-|  | `blocked_grace_seconds` | 审查宽限秒数 | 收到中等图后，判定疑似被审查的宽限秒数。 | `10` |
-|  | `nsfw` | NSFW 模式 | WebSocket 请求是否启用 NSFW。 | `true` |
-|  | `medium_min_bytes` | 中等图最小字节 | 判定中等质量图的最小字节数。 | `30000` |
-|  | `final_min_bytes` | 最终图最小字节 | 判定最终图的最小字节数（通常 JPG > 100KB）。 | `100000` |
-|  | `blocked_parallel_attempts` | 并行补偿次数 | 遇到疑似审查/拦截时的并行补偿生成次数。 | `5` |
-|  | `blocked_parallel_enabled` | 并行补偿开关 | 是否启用并行补偿（启用时优先使用不同 token）。 | `true` |
-| **imagine_fast** | `n` | 生成数量 | 仅对 grok-imagine-1.0-fast 生效。 | `1` |
-|  | `size` | 图片尺寸 | `1280x720` / `720x1280` / `1792x1024` / `1024x1792` / `1024x1024` | `1024x1024` |
-|  | `response_format` | 响应格式 | `url` / `b64_json` / `base64` | `url` |
-| **video** | `concurrent` | 并发上限 | Reverse 接口并发上限。 | `100` |
-|  | `timeout` | 请求超时 | Reverse 接口超时时间（秒）。 | `60` |
-|  | `stream_timeout` | 流空闲超时 | 流式空闲超时时间（秒）。 | `60` |
-|  | `upscale_timing` | 超分时机 | Basic 号池 720p 超分模式：`single`（每轮扩展后超分）/ `complete`（所有扩展后超分）。 | `complete` |
-| **voice** | `timeout` | 请求超时 | Voice 请求超时时间（秒）。 | `60` |
-| **asset** | `upload_concurrent` | 上传并发 | 上传接口的最大并发数。 | `100` |
-|  | `upload_timeout` | 上传超时 | 上传接口超时时间（秒）。 | `60` |
-|  | `download_concurrent` | 下载并发 | 下载接口的最大并发数。 | `100` |
-|  | `download_timeout` | 下载超时 | 下载接口超时时间（秒）。 | `60` |
-|  | `list_concurrent` | 查询并发 | 资产查询接口的最大并发数。 | `100` |
-|  | `list_timeout` | 查询超时 | 资产查询接口超时时间（秒）。 | `60` |
-|  | `list_batch_size` | 查询批次大小 | 单次查询可处理的 Token 数量。 | `50` |
-|  | `delete_concurrent` | 删除并发 | 资产删除接口的最大并发数。 | `100` |
-|  | `delete_timeout` | 删除超时 | 资产删除接口超时时间（秒）。 | `60` |
-|  | `delete_batch_size` | 删除批次大小 | 单次删除可处理的 Token 数量。 | `50` |
-| **nsfw** | `concurrent` | 并发上限 | 批量开启 NSFW 模式时的并发请求上限。 | `60` |
-|  | `batch_size` | 批次大小 | 批量开启 NSFW 模式的单批处理数量。 | `30` |
-|  | `timeout` | 请求超时 | NSFW 开启相关请求的超时时间（秒）。 | `60` |
-| **usage** | `concurrent` | 并发上限 | 批量刷新用量时的并发请求上限。 | `100` |
-|  | `batch_size` | 批次大小 | 批量刷新用量的单批处理数量。 | `50` |
-|  | `timeout` | 请求超时 | 用量查询接口的超时时间（秒）。 | `60` |
-| **oauth** | `linuxdo_enabled` | OAuth 开关 | 是否启用 linux.do OAuth 登录。 | `false` |
-|  | `linuxdo_client_id` | Client ID | linux.do OAuth 应用的 Client ID。 | `""` |
-|  | `linuxdo_client_secret` | Client Secret | linux.do OAuth 应用的 Client Secret。 | `""` |
-| **credits** | `enabled` | 积分开关 | 是否启用积分系统。 | `true` |
-|  | `initial_credits` | 初始积分 | 新用户注册时发放的初始积分。 | `1000` |
-|  | `daily_checkin_credits` | 签到积分 | 每日签到领取的积分数量。 | `1000` |
-|  | `image_cost` | 图片消耗 | 图片生成消耗的积分。 | `5` |
-|  | `image_edit_cost` | 编辑消耗 | 图片编辑消耗的积分。 | `50` |
-|  | `video_cost` | 视频消耗 | 视频生成消耗的积分。 | `50` |
+
+| 模块             | 字段                           | 配置名            | 说明                                                                                 | 默认值                                                                                                                  |
+| :--------------- | :----------------------------- | :---------------- | :----------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| **app**          | `app_url`                      | 应用地址          | 当前 Grok2API 服务的外部访问 URL，用于文件链接访问。                                 | `""`                                                                                                                    |
+|                  | `app_key`                      | 后台密码          | 登录 Grok2API 管理后台的密码（必填）。                                               | `grok2api`                                                                                                              |
+|                  | `api_key`                      | API 密钥          | 调用 Grok2API 服务的 Token（可选，支持逗号分隔或数组）。                             | `""`                                                                                                                    |
+|                  | `function_enabled`             | Function 开关     | 是否启用 function 功能玩法。                                                         | `false`                                                                                                                 |
+|                  | `function_key`                 | Function 密钥     | Function 调用密钥（可选）。                                                          | `""`                                                                                                                    |
+|                  | `image_format`                 | 图片格式          | 生成的图片格式（url 或 base64）。                                                    | `url`                                                                                                                   |
+|                  | `video_format`                 | 视频格式          | 生成的视频格式（html 或 url，url 为处理后的链接）。                                  | `html`                                                                                                                  |
+|                  | `temporary`                    | 临时对话          | 是否启用临时对话模式。                                                               | `true`                                                                                                                  |
+|                  | `disable_memory`               | 禁用记忆          | 禁用 Grok 记忆功能，防止响应中出现不相关上下文。                                     | `true`                                                                                                                  |
+|                  | `stream`                       | 流式响应          | 是否默认启用流式输出。                                                               | `true`                                                                                                                  |
+|                  | `thinking`                     | 思维链            | 是否默认启用思维链输出。                                                             | `true`                                                                                                                  |
+|                  | `dynamic_statsig`              | 动态指纹          | 是否动态生成 Statsig 指纹。                                                          | `true`                                                                                                                  |
+|                  | `custom_instruction`           | 自定义指令        | 多行文本，透传为 Grok`customPersonality`。                                           | `""`                                                                                                                    |
+|                  | `filter_tags`                  | 过滤标签          | 自动过滤 Grok 响应中的特殊标签。                                                     | `["xaiartifact","xai:tool_usage_card","grok:render"]`                                                                   |
+| **proxy**        | `base_proxy_url`               | 基础代理 URL      | 代理请求到 Grok 官网的基础服务地址。                                                 | `""`                                                                                                                    |
+|                  | `asset_proxy_url`              | 资源代理 URL      | 代理请求到 Grok 官网的静态资源（图片/视频）地址。                                    | `""`                                                                                                                    |
+|                  | `cf_cookies`                   | CF Cookies        | FlareSolverr 刷新写入的完整 Cookie 字符串。                                          | `""`                                                                                                                    |
+|                  | `skip_proxy_ssl_verify`        | 跳过代理 SSL 校验 | 代理使用自签名证书时启用（仅放行代理证书，目标站点仍校验）。                         | `false`                                                                                                                 |
+|                  | `enabled`                      | CF 自动刷新       | 是否启用 CF 自动刷新。                                                               | `false`                                                                                                                 |
+|                  | `flaresolverr_url`             | FlareSolverr 地址 | FlareSolverr 服务的 HTTP 地址。                                                      | `""`                                                                                                                    |
+|                  | `refresh_interval`             | 刷新间隔          | 自动刷新 cf_clearance 间隔（秒）。                                                   | `3600`                                                                                                                  |
+|                  | `timeout`                      | 挑战超时          | CF 挑战等待超时（秒）。                                                              | `60`                                                                                                                    |
+|                  | `cf_clearance`                 | CF Clearance      | Cloudflare 验证 Cookie。                                                             | `""`                                                                                                                    |
+|                  | `browser`                      | 浏览器指纹        | curl_cffi 浏览器指纹标识（如 chrome136）。                                           | `chrome136`                                                                                                             |
+|                  | `user_agent`                   | User-Agent        | HTTP 请求的 User-Agent 字符串。                                                      | `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36` |
+| **retry**        | `max_retry`                    | 最大重试          | 请求 Grok 服务失败时的最大重试次数。                                                 | `3`                                                                                                                     |
+|                  | `retry_status_codes`           | 重试状态码        | 触发重试的 HTTP 状态码列表。                                                         | `[401, 429, 403]`                                                                                                       |
+|                  | `reset_session_status_codes`   | 重建状态码        | 触发重建 session 的 HTTP 状态码列表（用于轮换代理）。                                | `[403]`                                                                                                                 |
+|                  | `retry_backoff_base`           | 退避基数          | 重试退避的基础延迟（秒）。                                                           | `0.5`                                                                                                                   |
+|                  | `retry_backoff_factor`         | 退避倍率          | 重试退避的指数放大系数。                                                             | `2.0`                                                                                                                   |
+|                  | `retry_backoff_max`            | 退避上限          | 单次重试等待的最大延迟（秒）。                                                       | `20.0`                                                                                                                  |
+|                  | `retry_budget`                 | 退避预算          | 单次请求的最大重试总耗时（秒）。                                                     | `60.0`                                                                                                                  |
+| **token**        | `auto_refresh`                 | 自动刷新          | 是否开启 Token 自动刷新机制。                                                        | `true`                                                                                                                  |
+|                  | `refresh_interval_hours`       | 刷新间隔          | 普通 Token 刷新的时间间隔（小时）。                                                  | `8`                                                                                                                     |
+|                  | `super_refresh_interval_hours` | Super 刷新间隔    | Super Token 刷新的时间间隔（小时）。                                                 | `2`                                                                                                                     |
+|                  | `fail_threshold`               | 失败阈值          | 单个 Token 连续失败多少次后被标记为不可用。                                          | `5`                                                                                                                     |
+|                  | `save_delay_ms`                | 保存延迟          | Token 变更合并写入的延迟（毫秒）。                                                   | `500`                                                                                                                   |
+|                  | `usage_flush_interval_sec`     | 用量落库间隔      | 用量类字段写入数据库的最小间隔（秒）。                                               | `5`                                                                                                                     |
+|                  | `reload_interval_sec`          | 同步间隔          | 多 worker 场景下 Token 状态刷新间隔（秒）。                                          | `30`                                                                                                                    |
+| **cache**        | `enable_auto_clean`            | 自动清理          | 是否启用缓存自动清理，开启后按上限自动回收。                                         | `true`                                                                                                                  |
+|                  | `limit_mb`                     | 清理阈值          | 缓存大小阈值（MB），超过阈值会触发清理。                                             | `512`                                                                                                                   |
+| **chat**         | `concurrent`                   | 并发上限          | Reverse 接口并发上限。                                                               | `50`                                                                                                                    |
+|                  | `timeout`                      | 请求超时          | Reverse 接口超时时间（秒）。                                                         | `60`                                                                                                                    |
+|                  | `stream_timeout`               | 流空闲超时        | 流式空闲超时时间（秒）。                                                             | `60`                                                                                                                    |
+| **image**        | `timeout`                      | 请求超时          | WebSocket 请求超时时间（秒）。                                                       | `60`                                                                                                                    |
+|                  | `stream_timeout`               | 流空闲超时        | WebSocket 流式空闲超时时间（秒）。                                                   | `60`                                                                                                                    |
+|                  | `final_timeout`                | 最终图超时        | 收到中等图后等待最终图的超时秒数。                                                   | `15`                                                                                                                    |
+|                  | `blocked_grace_seconds`        | 审查宽限秒数      | 收到中等图后，判定疑似被审查的宽限秒数。                                             | `10`                                                                                                                    |
+|                  | `nsfw`                         | NSFW 模式         | WebSocket 请求是否启用 NSFW。                                                        | `true`                                                                                                                  |
+|                  | `medium_min_bytes`             | 中等图最小字节    | 判定中等质量图的最小字节数。                                                         | `30000`                                                                                                                 |
+|                  | `final_min_bytes`              | 最终图最小字节    | 判定最终图的最小字节数（通常 JPG > 100KB）。                                         | `100000`                                                                                                                |
+|                  | `blocked_parallel_attempts`    | 并行补偿次数      | 遇到疑似审查/拦截时的并行补偿生成次数。                                              | `5`                                                                                                                     |
+|                  | `blocked_parallel_enabled`     | 并行补偿开关      | 是否启用并行补偿（启用时优先使用不同 token）。                                       | `true`                                                                                                                  |
+| **imagine_fast** | `n`                            | 生成数量          | 仅对 grok-imagine-1.0-fast 生效。                                                    | `1`                                                                                                                     |
+|                  | `size`                         | 图片尺寸          | `1280x720` / `720x1280` / `1792x1024` / `1024x1792` / `1024x1024`                    | `1024x1024`                                                                                                             |
+|                  | `response_format`              | 响应格式          | `url` / `b64_json` / `base64`                                                        | `url`                                                                                                                   |
+| **video**        | `concurrent`                   | 并发上限          | Reverse 接口并发上限。                                                               | `100`                                                                                                                   |
+|                  | `timeout`                      | 请求超时          | Reverse 接口超时时间（秒）。                                                         | `60`                                                                                                                    |
+|                  | `stream_timeout`               | 流空闲超时        | 流式空闲超时时间（秒）。                                                             | `60`                                                                                                                    |
+|                  | `upscale_timing`               | 超分时机          | Basic 号池 720p 超分模式：`single`（每轮扩展后超分）/ `complete`（所有扩展后超分）。 | `complete`                                                                                                              |
+| **voice**        | `timeout`                      | 请求超时          | Voice 请求超时时间（秒）。                                                           | `60`                                                                                                                    |
+| **asset**        | `upload_concurrent`            | 上传并发          | 上传接口的最大并发数。                                                               | `100`                                                                                                                   |
+|                  | `upload_timeout`               | 上传超时          | 上传接口超时时间（秒）。                                                             | `60`                                                                                                                    |
+|                  | `download_concurrent`          | 下载并发          | 下载接口的最大并发数。                                                               | `100`                                                                                                                   |
+|                  | `download_timeout`             | 下载超时          | 下载接口超时时间（秒）。                                                             | `60`                                                                                                                    |
+|                  | `list_concurrent`              | 查询并发          | 资产查询接口的最大并发数。                                                           | `100`                                                                                                                   |
+|                  | `list_timeout`                 | 查询超时          | 资产查询接口超时时间（秒）。                                                         | `60`                                                                                                                    |
+|                  | `list_batch_size`              | 查询批次大小      | 单次查询可处理的 Token 数量。                                                        | `50`                                                                                                                    |
+|                  | `delete_concurrent`            | 删除并发          | 资产删除接口的最大并发数。                                                           | `100`                                                                                                                   |
+|                  | `delete_timeout`               | 删除超时          | 资产删除接口超时时间（秒）。                                                         | `60`                                                                                                                    |
+|                  | `delete_batch_size`            | 删除批次大小      | 单次删除可处理的 Token 数量。                                                        | `50`                                                                                                                    |
+| **nsfw**         | `concurrent`                   | 并发上限          | 批量开启 NSFW 模式时的并发请求上限。                                                 | `60`                                                                                                                    |
+|                  | `batch_size`                   | 批次大小          | 批量开启 NSFW 模式的单批处理数量。                                                   | `30`                                                                                                                    |
+|                  | `timeout`                      | 请求超时          | NSFW 开启相关请求的超时时间（秒）。                                                  | `60`                                                                                                                    |
+| **usage**        | `concurrent`                   | 并发上限          | 批量刷新用量时的并发请求上限。                                                       | `100`                                                                                                                   |
+|                  | `batch_size`                   | 批次大小          | 批量刷新用量的单批处理数量。                                                         | `50`                                                                                                                    |
+|                  | `timeout`                      | 请求超时          | 用量查询接口的超时时间（秒）。                                                       | `60`                                                                                                                    |
+| **oauth**        | `linuxdo_enabled`              | OAuth 开关        | 是否启用 linux.do OAuth 登录。                                                       | `false`                                                                                                                 |
+|                  | `linuxdo_client_id`            | Client ID         | linux.do OAuth 应用的 Client ID。                                                    | `""`                                                                                                                    |
+|                  | `linuxdo_client_secret`        | Client Secret     | linux.do OAuth 应用的 Client Secret。                                                | `""`                                                                                                                    |
+| **credits**      | `enabled`                      | 积分开关          | 是否启用积分系统。                                                                   | `true`                                                                                                                  |
+|                  | `initial_credits`              | 初始积分          | 新用户注册时发放的初始积分。                                                         | `1000`                                                                                                                  |
+|                  | `daily_checkin_credits`        | 签到积分          | 每日签到领取的积分数量。                                                             | `1000`                                                                                                                  |
+|                  | `image_cost`                   | 图片消耗          | 图片生成消耗的积分。                                                                 | `5`                                                                                                                     |
+|                  | `image_edit_cost`              | 编辑消耗          | 图片编辑消耗的积分。                                                                 | `50`                                                                                                                    |
+|                  | `video_cost`                   | 视频消耗          | 视频生成消耗的积分。                                                                 | `50`                                                                                                                    |
 
 <br>
 

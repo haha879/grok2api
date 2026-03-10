@@ -40,6 +40,8 @@
   let isSelectionMode = false;
   let selectedImages = new Set();
   let streamSequence = 0;
+  let editStopRequested = false;
+  let activeEditAbortController = null;
 
   // === Edit mode state ===
   let imagineMode = 'generate'; // 'generate' or 'edit'
@@ -948,8 +950,8 @@
       return;
     }
 
-    const authHeader = await ensureFunctionKey();
-    if (authHeader === null) {
+    const initialAuthHeader = await ensureFunctionKey();
+    if (initialAuthHeader === null) {
       toast(t('common.configurePublicKey') || '请先登录', 'error');
       window.location.href = '/login';
       return;
@@ -961,68 +963,153 @@
     }
 
     isRunning = true;
+    editStopRequested = false;
     setStatus('connecting', t('imagine.editing') || '编辑中...');
     setButtons(true);
 
-    const startTime = Date.now();
-    const formData = new FormData();
-    formData.append('prompt', prompt);
-    editImageFiles.forEach(f => formData.append('image', f));
-    formData.append('model', 'grok-imagine-1.0-edit');
-    formData.append('n', '1');
-    formData.append('response_format', 'b64_json');
-
     try {
-      const res = await fetch('/v1/function/imagine/edit', {
-        method: 'POST',
-        headers: buildAuthHeaders(authHeader),
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || `HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      const elapsed = Date.now() - startTime;
-
-      if (data.credits_info) {
-        const creditsEl = document.getElementById('credits-value');
-        if (creditsEl && typeof data.credits_info.credits === 'number') {
-          creditsEl.textContent = data.credits_info.credits;
+      const sourceFiles = editImageFiles.slice(0, MAX_EDIT_IMAGES);
+      const maxConsecutiveErrors = 5;
+      let consecutiveErrors = 0;
+      let round = 0;
+      while (!editStopRequested) {
+        round += 1;
+        const authHeader = await ensureFunctionKey();
+        if (authHeader === null) {
+          setStatus('error', t('common.configurePublicKey') || '请先登录');
+          toast(t('common.configurePublicKey') || '请先登录', 'error');
+          window.location.href = '/login';
+          break;
         }
-        if (data.credits_info.error) {
-          toast(data.credits_info.message || t('imagine.insufficientCredits') || '积分不足', 'error');
-        }
-      }
 
-      if (data.data && data.data.length > 0) {
-        data.data.forEach((item) => {
-          const b64 = item.b64_json;
-          if (b64) {
-            imageCount += 1;
-            updateCount(imageCount);
-            updateLatency(elapsed);
-            appendImage(b64, { sequence: imageCount, elapsed_ms: elapsed, prompt: prompt });
+        const startTime = Date.now();
+        setStatus('connecting', `${t('imagine.editing') || '编辑中...'} (#${round})`);
+
+        const formData = new FormData();
+        formData.append('prompt', prompt);
+        sourceFiles.forEach(f => formData.append('image', f));
+        formData.append('model', 'grok-imagine-1.0-edit');
+        formData.append('n', '1');
+        formData.append('response_format', 'b64_json');
+
+        try {
+          activeEditAbortController = new AbortController();
+          const res = await fetch('/v1/function/imagine/edit', {
+            method: 'POST',
+            headers: buildAuthHeaders(authHeader),
+            body: formData,
+            signal: activeEditAbortController.signal,
+          });
+          activeEditAbortController = null;
+
+          if (!res.ok) {
+            const errText = await res.text();
+            const errMsg = errText || `HTTP ${res.status}`;
+            const statusCode = Number(res.status || 0);
+
+            // Hard-stop on auth or non-retryable client errors.
+            if (statusCode === 401 || statusCode === 403) {
+              if (typeof clearStoredFunctionKey === 'function') {
+                clearStoredFunctionKey();
+              }
+              setStatus('error', `${t('imagine.editFailed') || '编辑失败'} (#${round})`);
+              toast((t('imagine.editFailed') || '编辑失败') + ': ' + errMsg, 'error');
+              window.location.href = '/login';
+              break;
+            }
+            if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
+              setStatus('error', `${t('imagine.editFailed') || '编辑失败'} (#${round})`);
+              toast((t('imagine.editFailed') || '编辑失败') + ': ' + errMsg, 'error');
+              break;
+            }
+
+            throw new Error(errMsg);
           }
-        });
-        setStatus('connected', t('imagine.editDone') || '编辑完成');
-        toast(t('imagine.editSuccess') || '图片编辑完成', 'success');
-      } else {
-        setStatus('error', t('imagine.noResult') || '无结果');
-        toast(t('imagine.editNoResult') || '未获取到编辑结果', 'error');
+
+          const data = await res.json();
+          const elapsed = Date.now() - startTime;
+
+          if (data.credits_info) {
+            const creditsEl = document.getElementById('credits-value');
+            if (creditsEl && typeof data.credits_info.credits === 'number') {
+              creditsEl.textContent = data.credits_info.credits;
+            }
+            if (data.credits_info.error) {
+              toast(data.credits_info.message || t('imagine.insufficientCredits') || '积分不足', 'error');
+            }
+          }
+
+          if (data.data && data.data.length > 0) {
+            let roundSuccess = 0;
+            data.data.forEach((item) => {
+              const b64 = item.b64_json;
+              if (b64) {
+                roundSuccess += 1;
+                imageCount += 1;
+                updateCount(imageCount);
+                updateLatency(elapsed);
+                appendImage(b64, { sequence: imageCount, elapsed_ms: elapsed, prompt: prompt });
+              }
+            });
+            if (roundSuccess > 0) {
+              consecutiveErrors = 0;
+              setStatus('connected', `${t('imagine.editDone') || '编辑完成'} (#${round})`);
+            } else {
+              consecutiveErrors += 1;
+              setStatus('error', `${t('imagine.noResult') || '无结果'} (#${round})`);
+              if (consecutiveErrors >= maxConsecutiveErrors) {
+                toast(t('imagine.editFailed') || '编辑失败', 'error');
+                break;
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } else {
+            consecutiveErrors += 1;
+            setStatus('error', `${t('imagine.noResult') || '无结果'} (#${round})`);
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+              toast(t('imagine.editFailed') || '编辑失败', 'error');
+              break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (e) {
+          if (e && e.name === 'AbortError') {
+            break;
+          }
+          consecutiveErrors += 1;
+          setStatus('error', `${t('imagine.editFailed') || '编辑失败'} (#${round})`);
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            toast(t('imagine.editFailed') || '编辑失败', 'error');
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1200));
+        }
+
+        if (!editStopRequested) {
+          await new Promise(resolve => setTimeout(resolve, 120));
+        }
       }
     } catch (e) {
+      if (e && e.name === 'AbortError') {
+        setStatus('', t('common.notConnected'));
+      } else {
       setStatus('error', t('imagine.editFailed') || '编辑失败');
       toast((t('imagine.editFailed') || '编辑失败') + ': ' + e.message, 'error');
+      }
     } finally {
+      activeEditAbortController = null;
+      editStopRequested = false;
       isRunning = false;
       setButtons(false);
     }
   }
 
   async function stopConnection() {
+    editStopRequested = true;
+    if (activeEditAbortController) {
+      activeEditAbortController.abort();
+      activeEditAbortController = null;
+    }
     if (pendingFallbackTimer) {
       clearTimeout(pendingFallbackTimer);
       pendingFallbackTimer = null;

@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "_public"
-APP_DIR = BASE_DIR / "app"
 
 # Ensure the project root is on sys.path (helps when Vercel sets a different CWD)
 if str(BASE_DIR) not in sys.path:
@@ -152,11 +151,6 @@ def create_app() -> FastAPI:
         video_router, prefix="/v1", dependencies=[Depends(verify_api_key)]
     )
     app.include_router(files_router, prefix="/v1/files")
-
-    # 独立视频页面静态资源 (app/static/video/) — 必须在通用 /static 之前挂载
-    video_static_dir = APP_DIR / "static" / "video"
-    if video_static_dir.exists():
-        app.mount("/static/video", StaticFiles(directory=video_static_dir), name="video-static")
 
     # 静态文件服务（统一使用 /_public/static）
     static_dir = PUBLIC_DIR / "static"

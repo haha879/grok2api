@@ -1,16 +1,68 @@
-# Grok2API
+# Grok2API (Fork)
 
-[中文](../readme.md) | **English** | [Docs](https://blog.cheny.me/blog/posts/grok2api)
+[中文](../readme.md) | **English** | [Upstream Docs](https://blog.cheny.me/blog/posts/grok2api)
+
+> [!NOTE]
+> This project is forked from [chenyme/grok2api](https://github.com/chenyme/grok2api), with additional features such as LINUX DO OAuth login, credits system, and frontend enhancements.
+> Thanks to the original author [@Chenyme](https://github.com/chenyme) for the excellent upstream project.
 
 > [!NOTE]
 > This project is for learning and research only. You must comply with Grok **Terms of Use** and **local laws and regulations**. Do not use for illegal purposes.
 
-> [!NOTE]
-> Open source projects welcome everyone's support for secondary development and pull requests, but please retain the original author's and frontend's logos to respect the work of others!
-
 Grok2API rebuilt with **FastAPI**, fully aligned with the latest web call format. Supports streaming/non-streaming chat, tools call, image generation/editing, video generation/upscale (text-to-video and image-to-video), deep reasoning, token pool concurrency, and automatic load balancing.
 
 <img width="4800" height="4200" alt="image" src="https://github.com/user-attachments/assets/a6669674-8afe-4ae5-bf81-a2ec1f864233" />
+
+<br>
+
+## Fork Highlights
+
+### LINUX DO OAuth Login
+
+One-click login with a [linux.do](https://linux.do) account, without manually entering Function Key.
+
+- Enable via `[oauth]` config and set `linuxdo_client_id` / `linuxdo_client_secret`
+- Auto-create user account and grant initial credits after login
+- OAuth token TTL: 24 hours, with CSRF protection (`state` validation)
+- Supports proxy access to linux.do OAuth service (reuses `proxy.base_proxy_url`)
+- Login page auto-detects OAuth config and dynamically shows/hides the LINUX DO login button
+
+### Credits System
+
+Credits-based quota management for OAuth users, controlling image/video usage.
+
+- **Initial credits for new users**: granted on first login (default 1000)
+- **Daily check-in**: claim daily credits from header (default 1000)
+- **Usage billing**: image generation (5), image edit (50), video generation (50), all configurable
+- **Balance display**: real-time credits in header, supports manual refresh
+- **Multi-backend storage**: Local / Redis / MySQL / PostgreSQL (same as project storage backend)
+- **Insufficient credits hints**: clear error with current balance
+
+See `[oauth]` and `[credits]` sections below for configuration.
+
+### Image Editing Enhancements
+
+- **Mode switch in UI**: added Generate/Edit switch on Imagine page
+- **Multi-image upload**: supports up to 3 reference images
+- **Preview and remove**: uploaded images shown as thumbnails with per-item delete
+- **Backend edit API**: added `/v1/function/imagine/edit` (Function Key auth, multipart multi-image upload)
+
+### Video Generation Enhancements
+
+- **Task center**: local task persistence with status (`queued/running/done/error/stopped`)
+- **Resume and retry**: refresh recovery for running tasks; one-click retry for failed/stopped/done tasks
+- **Persistent reference upload**: auto-upload local `data:` reference image to reusable URL (`/v1/function/video/reference/upload`) to avoid retry failures after refresh
+- **Queue and concurrency control**: supports enqueue; serial execution with 1 concurrency; shows queue index and estimated wait; supports cancel and start-now
+- **Video history**: stores latest 20 records in localStorage, supports replay and delete
+- **Replay optimization**: maps expired external URLs to local cache path `/v1/files/video/xxx.mp4` for direct playback
+- **Delete linkage**: deleting a history item also triggers server cache cleanup
+- **Video cache delete API**: added `/v1/function/video/cache/delete` (Function Key auth)
+
+### Cache Management Enhancements
+
+- **Cascade deletion**: deleting cached image/video also cleans linked preview/video by post_id (UUID)
+- **Image modal preview**: click-to-preview image cache in dialog instead of opening new tab
+- **Refresh linkage**: auto-refresh related cache list after delete
 
 <br>
 
@@ -28,7 +80,7 @@ uv run granian --interface asgi --host 0.0.0.0 --port 8000 --workers 1 main:app
 ### Docker Compose
 
 ```bash
-git clone https://github.com/chenyme/grok2api
+git clone https://github.com/WangXingFan/grok2api
 
 cd grok2api
 
@@ -46,7 +98,7 @@ docker compose up -d
 
 ### Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chenyme/grok2api&env=LOG_LEVEL,LOG_FILE_ENABLED,DATA_DIR,SERVER_STORAGE_TYPE,SERVER_STORAGE_URL&envDefaults=%7B%22DATA_DIR%22%3A%22/tmp/data%22%2C%22LOG_FILE_ENABLED%22%3A%22false%22%2C%22LOG_LEVEL%22%3A%22INFO%22%2C%22SERVER_STORAGE_TYPE%22%3A%22local%22%2C%22SERVER_STORAGE_URL%22%3A%22%22%7D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/WangXingFan/grok2api&env=LOG_LEVEL,LOG_FILE_ENABLED,DATA_DIR,SERVER_STORAGE_TYPE,SERVER_STORAGE_URL&envDefaults=%7B%22DATA_DIR%22%3A%22/tmp/data%22%2C%22LOG_FILE_ENABLED%22%3A%22false%22%2C%22LOG_LEVEL%22%3A%22INFO%22%2C%22SERVER_STORAGE_TYPE%22%3A%22local%22%2C%22SERVER_STORAGE_URL%22%3A%22%22%7D)
 
 > Set `DATA_DIR=/tmp/data` and disable file logs with `LOG_FILE_ENABLED=false`.
 >
@@ -54,7 +106,7 @@ docker compose up -d
 
 ### Render
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/chenyme/grok2api)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/WangXingFan/grok2api)
 
 > Render free instances sleep after 15 minutes of inactivity; redeploy/restart will lose data.
 >
@@ -75,6 +127,18 @@ docker compose up -d
 - **NSFW Enable**: one-click Unhinged for tokens (proxy or `cf_clearance` required)
 - **Config Management**: update system config online
 - **Cache Management**: view and clear media cache
+
+<br>
+
+## Upstream Sync Log
+
+This fork is based on upstream `v1.6.0`, and has synced the following upstream updates:
+
+| PR | Summary | Sync Date |
+| :-- | :-- | :-- |
+| [#284](https://github.com/chenyme/grok2api/pull/284) | Unicode text cleanup (zero-width chars, smart quotes, special spaces) | 2026-03-08 |
+| [#291](https://github.com/chenyme/grok2api/pull/291) | Video generation refactor (`VideoRoundPlan`, `upscale_timing`, frontend paging) | 2026-03-08 |
+| [#299](https://github.com/chenyme/grok2api/pull/299) | Removed deprecated `GROK-4-MINI`, enhanced payload logs | 2026-03-08 |
 
 <br>
 
@@ -189,7 +253,7 @@ curl http://localhost:8000/v1/chat/completions \
 
 **Notes**:
 
-- `image_url/input_audio/file` only supports URL or Data URI (`data:<mime>;base64,...`); raw base64 will be rejected.
+- `image_url/input_audio/file` supports URL, Data URI (`data:<mime>;base64,...`), and local cache paths (for example `/v1/files/image/xxx.png`); raw base64 will be rejected.
 - `reasoning_effort`: `none` disables thinking output; any other value enables it.
 - Tool calling is **prompt-based + client-executed**: the model emits `<tool_call>{...}</tool_call>` and the server parses it into `tool_calls`; tools are not executed server-side.
 - `grok-imagine-1.0-fast` works similarly to the imagine waterfall stream, and can be called directly via `/v1/chat/completions`. Its `n/size/response_format` are globally controlled by the server's `[imagine_fast]` config.
@@ -361,7 +425,7 @@ curl http://localhost:8000/v1/videos \
 | `size` | string | Frame size (mapped to aspect_ratio) | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
 | `seconds` | integer | Target duration (seconds) | `6` ~ `30` |
 | `quality` | string | Video quality (mapped to resolution) | `standard`, `high` |
-| `image_reference` | object/string | Reference image (optional) | `{"image_url":"https://..."}` or Data URI |
+| `image_reference` | object/string | Reference image (optional) | `{"image_url":"https://..."}` or Data URI or `/v1/files/image/...` |
 | `input_reference` | file | multipart reference image (optional) | `png`, `jpg`, `webp` |
 
 **Notes**:
@@ -374,6 +438,27 @@ curl http://localhost:8000/v1/videos \
 <br>
 
 </details>
+
+<br>
+
+## Function Endpoints (Fork Frontend)
+
+> Mainly used by `/function/imagine` and `/function/video`. All endpoints require `Function Key` auth except `GET /v1/function/video/sse`.
+
+| Method | Path | Description |
+| :-- | :-- | :-- |
+| `POST` | `/v1/function/imagine/edit` | Image edit (multipart, multi-image upload, up to 3 images) |
+| `POST` | `/v1/function/video/reference/upload` | Upload Data URI reference image and persist as `/v1/files/image/...` |
+| `POST` | `/v1/function/video/start` | Create a video task and return `task_id` |
+| `GET` | `/v1/function/video/sse?task_id=...` | Subscribe to task progress and final result via SSE |
+| `POST` | `/v1/function/video/stop` | Stop tasks in batch (`task_ids`) |
+| `POST` | `/v1/function/video/cache/delete` | Delete cached video and linked preview asset |
+
+**Notes**:
+
+- `POST /v1/function/video/reference/upload` supports `jpeg/png/webp/gif`, max 20MB per image.
+- `task_id` TTL is 10 minutes by default (expired tasks must be recreated).
+- For retry-safe video tasks, persist reference images as `/v1/files/image/...` first.
 
 <br>
 
@@ -468,9 +553,22 @@ Config file: `data/config.toml`
 | **usage** | `concurrent` | Concurrency | Usage batch concurrency. | `100` |
 |  | `batch_size` | Batch size | Usage batch size. | `50` |
 |  | `timeout` | Timeout | Usage timeout (seconds). | `60` |
+| **oauth** | `linuxdo_enabled` | OAuth enabled | Enable linux.do OAuth login. | `false` |
+|  | `linuxdo_client_id` | Client ID | Client ID of your linux.do OAuth app. | `""` |
+|  | `linuxdo_client_secret` | Client Secret | Client Secret of your linux.do OAuth app. | `""` |
+| **credits** | `enabled` | Credits enabled | Enable credits system. | `true` |
+|  | `initial_credits` | Initial credits | Credits granted to new users. | `1000` |
+|  | `daily_checkin_credits` | Daily check-in credits | Credits granted per daily check-in. | `1000` |
+|  | `image_cost` | Image cost | Credits consumed per image generation. | `5` |
+|  | `image_edit_cost` | Image edit cost | Credits consumed per image edit. | `50` |
+|  | `video_cost` | Video cost | Credits consumed per video generation. | `50` |
 
 <br>
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Chenyme/grok2api&type=Timeline)](https://star-history.com/#Chenyme/grok2api&Timeline)
+[![Star History Chart](https://api.star-history.com/svg?repos=WangXingFan/grok2api&type=Timeline)](https://star-history.com/#WangXingFan/grok2api&Timeline)
+
+## Acknowledgements
+
+- [chenyme/grok2api](https://github.com/chenyme/grok2api) - upstream project and original author

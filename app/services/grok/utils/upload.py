@@ -200,6 +200,13 @@ class UploadService:
         if not isinstance(file_input, str) or not file_input.strip():
             raise ValidationException("Invalid file input: empty content")
 
+        if file_input.startswith("/v1/files/"):
+            parts = file_input.strip("/").split("/", 3)
+            if len(parts) >= 4:
+                local_type = parts[2]
+                name = parts[3].replace("/", "-")
+                return await self._read_local_file(local_type, name)
+
         if self._is_url(file_input):
             return await self.parse_b64(file_input)
 

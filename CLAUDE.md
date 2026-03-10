@@ -36,7 +36,7 @@ grok2api/
 │   │       └── oauth.py    # [Fork] LINUX DO OAuth 登录
 │   ├── api/pages/          # HTML 页面路由
 │   │   ├── admin.py        # 管理后台页面
-│   │   └── function.py     # 功能玩法页面 + 独立视频页面
+│   │   └── function.py     # 功能玩法页面
 │   ├── core/               # 核心基础设施
 │   │   ├── config.py       # 配置管理 (TOML + 多存储后端 + 废弃配置迁移)
 │   │   ├── storage.py      # 统一存储抽象 (Local/Redis/MySQL/PgSQL)
@@ -61,7 +61,6 @@ grok2api/
 │   │   │   ├── manager.py  # CreditsManager (Local/Redis/SQL)
 │   │   │   └── models.py   # UserCredits 数据模型
 │   │   └── cf_refresh/     # CF Clearance 自动刷新
-│   └── static/video/       # [Fork] 独立视频页面静态资源
 ├── config.defaults.toml    # 默认配置基线
 ├── data/                   # 运行时数据目录
 │   ├── config.toml         # 用户配置
@@ -97,10 +96,6 @@ grok2api/
 - 配置: `config.toml` → `[credits]` 段
 - 功能: 新用户初始积分、每日签到、图片/视频消耗积分
 - 存储: 自动适配 Local/Redis/SQL 后端
-
-### 独立视频页面
-- 路由: `/video-standalone`
-- 增强功能: 瀑布流模式、进度条、批量选择、Lightbox 预览
 
 ## 运行与开发
 
@@ -244,7 +239,6 @@ curl -X GET http://localhost:8000/v1/admin/tokens -H "Authorization: Bearer YOUR
 - Web 服务器: uvicorn → granian
 - 移植 OAuth 登录到 `app/api/v1/function/oauth.py`
 - 移植积分系统到 `app/services/credits/`
-- 独立视频页面保留在 `app/static/video/`
 - 前端适配新路径和 i18n 支持
 
 ### 2026-02-09

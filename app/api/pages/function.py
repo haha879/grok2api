@@ -58,12 +58,3 @@ async def function_chat():
     return _function_page_response("function/pages/chat.html")
 
 
-@router.get("/video-standalone", include_in_schema=False)
-async def standalone_video():
-    """Standalone video page with enhanced features (waterfall, progress bar, etc)."""
-    if not is_function_enabled():
-        raise HTTPException(status_code=404, detail="Not Found")
-    video_html = Path(__file__).resolve().parents[2] / "static" / "video" / "video.html"
-    if not video_html.exists():
-        raise HTTPException(status_code=404, detail="Page not found")
-    return FileResponse(video_html)

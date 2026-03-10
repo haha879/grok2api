@@ -10,7 +10,7 @@
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-mono/style.css" rel="stylesheet">
   <link href="/static/common/css/common.css?v=1.6.1" rel="stylesheet">
-  <link href="/static/function/css/video.css?v=1.6.1" rel="stylesheet">
+  <link href="/static/function/css/video.css?v=1.6.3" rel="stylesheet">
   <link href="/static/common/css/toast.css" rel="stylesheet">
 </head>
 
@@ -26,6 +26,9 @@
           <p class="text-[var(--accents-4)] mt-1 text-sm" data-i18n="video.subtitle">生成短视频，支持参考图与多种预设风格。</p>
         </div>
         <div class="video-actions">
+          <button id="queueBtn" class="geist-button-outline gap-2" type="button">
+            <span data-i18n="video.addToQueue">加入队列</span>
+          </button>
           <button id="startBtn" class="geist-button gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round">
@@ -152,6 +155,17 @@
 
       <div class="video-card">
         <div class="video-preview-header">
+          <div class="card-title" data-i18n="video.taskCenter">任务中心</div>
+          <div class="preview-actions">
+            <button id="clearTaskCenterBtn" class="geist-button-outline text-xs px-3" data-i18n="video.clearFinishedTasks">清理已完成</button>
+          </div>
+        </div>
+        <div id="taskCenterEmpty" class="video-empty" style="min-height:80px;" data-i18n="video.taskCenterEmpty">暂无任务</div>
+        <div id="taskCenterList" class="video-task-list"></div>
+      </div>
+
+      <div class="video-card">
+        <div class="video-preview-header">
           <div class="card-title" data-i18n="video.history">历史记录</div>
           <div class="preview-actions">
             <button id="clearHistoryBtn" class="geist-button-outline text-xs px-3 hidden" data-i18n="video.clearHistory">清空</button>
@@ -170,7 +184,7 @@
   <script src="/static/common/js/function-header.js?v=1.6.2"></script>
   <script src="/static/common/js/footer.js?v=1.6.1"></script>
   <script src="/static/common/js/toast.js"></script>
-  <script src="/static/function/js/video.js?v=1.6.1"></script>
+  <script src="/static/function/js/video.js?v=1.7.0"></script>
 </body>
 
 </html>
